@@ -2,7 +2,7 @@
 <html lang="fr" class="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>MUTASSO PRO v6.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -51,7 +51,13 @@
         ::-webkit-scrollbar-track { background: transparent; }
 
         /* ============ SIDEBAR ============ */
-        .sidebar { width: 272px; shrink: 0; display: flex; flex-direction: column; padding: 26px 18px 20px; background: linear-gradient(180deg, #10433b 0%, #0c332d 55%, #0a2a25 100%); border-right: 1px solid rgba(255,255,255,.06); }
+        .sidebar { width: 272px; flex-shrink: 0; display: flex; flex-direction: column; padding: 26px 18px 20px; background: linear-gradient(180deg, #10433b 0%, #0c332d 55%, #0a2a25 100%); border-right: 1px solid rgba(255,255,255,.06); transition: transform .3s ease; }
+        .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); z-index: 40; display: none; }
+        .sidebar-overlay.open { display: block; }
+        @media (max-width: 1023px) {
+            .sidebar { position: fixed; left: 0; top: 0; height: 100vh; z-index: 50; transform: translateX(-100%); box-shadow: 24px 0 60px -10px rgba(0,0,0,.4); }
+            .sidebar.open { transform: translateX(0); }
+        }
         .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 22px; }
         .brand-mark { width: 44px; height: 44px; border-radius: 15px; background: linear-gradient(135deg, #2dd4bf, #0d9488); color: #fff; display: grid; place-items: center; box-shadow: 0 12px 22px -8px rgba(13, 148, 136, .55); }
         .brand-name { color: #f0fdfa; font-weight: 800; font-size: 19px; letter-spacing: -.02em; font-style: italic; }
@@ -100,42 +106,80 @@
         .date-pill { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; background: var(--field); border: 1px solid var(--field-border); color: var(--muted); font-size: 11px; font-weight: 800; white-space: nowrap; }
 
         /* ============ TABLES ============ */
-        .app-table { width: 100%; text-align: left; border-collapse: collapse; }
-        .app-table th { padding: 15px 22px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); border-bottom: 1px solid var(--card-border); background: color-mix(in srgb, var(--field) 60%, transparent); }
-        .app-table td { padding: 15px 22px; font-size: 13px; border-bottom: 1px solid var(--row-border); vertical-align: middle; }
+        .app-table { width: 100%; border-collapse: collapse; overflow-x: auto; }
+        .app-table thead { display: block; }
+        .app-table th { padding: 12px 16px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); border-bottom: 1px solid var(--card-border); background: color-mix(in srgb, var(--field) 60%, transparent); white-space: nowrap; }
+        .app-table td { padding: 12px 16px; font-size: 12px; border-bottom: 1px solid var(--row-border); vertical-align: middle; white-space: nowrap; }
         .app-table tbody tr { transition: background .15s; }
         .app-table tbody tr:hover { background: var(--soft-teal); }
         .app-table tbody tr:last-child td { border-bottom: none; }
-        .t-name { font-weight: 800; text-transform: uppercase; font-size: 12.5px; letter-spacing: .01em; }
-        .t-sub { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-top: 2px; }
-        .td-amount { font-weight: 900; font-size: 14.5px; text-align: right; white-space: nowrap; }
+        .t-name { font-weight: 800; text-transform: uppercase; font-size: 12px; letter-spacing: .01em; white-space: nowrap; }
+        .t-sub { font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); white-space: nowrap; margin-top: 0; }
+        .td-amount { font-weight: 900; font-size: 13.5px; text-align: right; white-space: nowrap; }
         .td-in { color: var(--in); } .td-out { color: var(--out); } .td-viol { color: var(--viol); }
-        .avatar-sm { width: 38px; height: 38px; border-radius: 13px; background: linear-gradient(135deg, rgba(45,212,191,.22), rgba(13,148,136,.16)); color: var(--primary); font-weight: 900; font-size: 11px; display: grid; place-items: center; flex-shrink: 0; border: 1px solid var(--soft-teal); }
-        .icon-btn { width: 34px; height: 34px; border-radius: 11px; display: inline-grid; place-items: center; color: var(--muted); cursor: pointer; transition: .15s; border: none; background: transparent; }
+        .avatar-sm { width: 32px; height: 32px; border-radius: 11px; background: linear-gradient(135deg, rgba(45,212,191,.22), rgba(13,148,136,.16)); color: var(--primary); font-weight: 900; font-size: 10px; display: grid; place-items: center; flex-shrink: 0; border: 1px solid var(--soft-teal); }
+        .icon-btn { width: 30px; height: 30px; border-radius: 10px; display: inline-grid; place-items: center; color: var(--muted); cursor: pointer; transition: .15s; border: none; background: transparent; }
         .icon-btn:hover { background: var(--soft-teal); color: var(--primary); }
         .icon-btn.red:hover { background: rgba(225,29,72,.1); color: var(--out); }
         .icon-btn.amber:hover { background: rgba(217,119,6,.12); color: #d97706; }
-        .receipt-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--soft-teal); color: var(--primary); padding: 8px 13px; border-radius: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; cursor: pointer; border: none; transition: .15s; }
+        .receipt-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--soft-teal); color: var(--primary); padding: 6px 10px; border-radius: 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; cursor: pointer; border: none; transition: .15s; }
         .receipt-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
-        .empty-cell { padding: 44px 20px !important; text-align: center; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
-        .empty-cell svg { display: block; margin: 0 auto 10px; opacity: .5; }
+        .empty-cell { padding: 32px 16px !important; text-align: center; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+        .empty-cell svg { display: block; margin: 0 auto 8px; opacity: .5; }
 
         /* ============ DASHBOARD ============ */
-        .hero-card { position: relative; overflow: hidden; border-radius: 24px; padding: 30px; color: #fff; background: linear-gradient(130deg, #124e44 0%, #0c362f 55%, #0a2b26 100%); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 24px 44px -18px rgba(10, 46, 42, .55); }
+        .hero-card { position: relative; overflow: hidden; border-radius: 20px; padding: 24px; color: #fff; background: linear-gradient(130deg, #124e44 0%, #0c362f 55%, #0a2b26 100%); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 20px 40px -16px rgba(10, 46, 42, .55); }
         .hero-orb { position: absolute; border-radius: 50%; pointer-events: none; }
-        .stat-card { padding: 22px; }
-        .icon-tile { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; flex-shrink: 0; }
+        .stat-card { padding: 20px; }
+        .icon-tile { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; flex-shrink: 0; }
         .it-teal { background: var(--soft-teal); color: var(--primary); }
         .it-blue { background: rgba(59,130,246,.12); color: #3b82f6; }
         .it-rose { background: rgba(225,29,72,.1); color: var(--out); }
         .it-viol { background: rgba(124,58,237,.1); color: var(--viol); }
-        .spark { display: flex; gap: 3px; align-items: flex-end; height: 34px; margin-top: 14px; }
-        .spark i { flex: 1; border-radius: 3px; min-height: 5px; opacity: .9; }
-        .av-c { width: 34px; height: 34px; border-radius: 999px; background: linear-gradient(135deg, #99f6e4, #5eead4); color: #0f766e; font-weight: 900; font-size: 10px; display: grid; place-items: center; border: 2px solid var(--card); }
+        .spark { display: flex; gap: 2px; align-items: flex-end; height: 30px; margin-top: 12px; }
+        .spark i { flex: 1; border-radius: 2px; min-height: 4px; opacity: .9; }
+        .av-c { width: 30px; height: 30px; border-radius: 999px; background: linear-gradient(135deg, #99f6e4, #5eead4); color: #0f766e; font-weight: 900; font-size: 9px; display: grid; place-items: center; border: 2px solid var(--card); }
         .av-c.more { background: var(--field); color: var(--muted); border-color: var(--field-border); }
-        .r-op { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px dashed var(--row-border); }
+        .r-op { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px dashed var(--row-border); }
         .r-op:last-child { border-bottom: none; }
-        .r-dot { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; }
+        .r-dot { width: 32px; height: 32px; border-radius: 11px; display: grid; place-items: center; flex-shrink: 0; }
+
+        /* ============ RESPONSIVE ADJUSTMENTS ============ */
+        @media (max-width: 640px) {
+            .hero-card { padding: 20px; }
+            .hero-orb { display: none; }
+            .hero-card h3 { font-size: 32px !important; }
+            .stat-card { padding: 16px; }
+            .icon-tile { width: 36px; height: 36px; border-radius: 11px; }
+            .app-card { border-radius: 18px; padding: 16px; }
+            .filter-bar { padding: 12px 16px; gap: 10px; }
+            .modal-card { margin: 12px; border-radius: 22px; }
+            .modal-ic { width: 40px; height: 40px; border-radius: 13px; }
+            .input-field { padding: 10px 12px; font-size: 12px; border-radius: 11px; }
+            .btn-primary, .btn-danger, .btn-ghost, .btn-cancel { padding: 10px 14px; font-size: 10px; border-radius: 11px; }
+            .label-style { font-size: 8.5px; }
+            .brand-name { font-size: 16px; }
+            .brand-mark { width: 38px; height: 38px; border-radius: 13px; }
+            .sidebar { width: 280px; padding: 20px 14px 16px; }
+            .side-item { padding: 10px 12px; font-size: 12px; }
+            .topbar { height: 64px; padding: 0 16px; }
+            .topbar-date { padding: 8px 12px; font-size: 10px; }
+            .page-title { font-size: 20px !important; }
+            .chip, .pill { font-size: 9px; padding: 3px 7px; }
+            .date-pill { padding: 5px 10px; font-size: 10px; }
+        }
+
+        @media (max-width: 1023px) and (min-width: 641px) {
+            .hero-card { padding: 22px; }
+            .stat-card { padding: 18px; }
+        }
+
+        /* Table horizontal scroll on mobile */
+        @media (max-width: 768px) {
+            .app-table { display: block; overflow-x: auto; white-space: nowrap; }
+            .app-table thead { display: block; }
+            .app-table th, .app-table td { display: table-cell; }
+        }
 
         /* ============ FILTRES ============ */
         .filter-bar { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; padding: 18px 22px; }
@@ -266,21 +310,65 @@
         </div>
     </div>
 
-    <!-- TEMPLATE REÇU (impression PDF) -->
+<!-- TEMPLATE REÇU (PDF A4 · une page) -->
     <div id="receipt-container" class="hidden">
-        <div id="receipt-content" class="bg-white p-10 text-slate-800 w-[600px] border border-slate-200">
-            <div class="flex justify-between items-center border-b border-slate-200 pb-6 mb-6">
-                <div class="flex items-center gap-4"><img id="receipt-logo" src="" class="w-16 h-16 object-cover rounded-xl hidden"><div><h2 id="receipt-assoc-nom" class="text-xl font-black uppercase" style="color:#0d9488">ASSOC</h2><p id="receipt-assoc-contact" class="text-xs font-bold text-slate-500"></p></div></div>
-                <div class="text-right"><h1 class="text-3xl font-black text-slate-900 uppercase">REÇU</h1><p id="receipt-date" class="text-sm font-bold text-slate-400"></p></div>
+        <div id="receipt-content" style="width:794px;background:#ffffff;font-family:'Plus Jakarta Sans',Arial,sans-serif;">
+            <!-- Bandeau vert signature -->
+            <div style="background:linear-gradient(130deg,#124e44 0%,#0c362f 55%,#0a2a25 100%);padding:38px 44px;display:flex;justify-content:space-between;align-items:center;">
+                <div style="display:flex;align-items:center;gap:18px;">
+                    <img id="receipt-logo" src="" style="width:66px;height:66px;object-fit:cover;border-radius:18px;border:2px solid rgba(255,255,255,.28);display:none;">
+                    <div>
+                        <div id="receipt-assoc-nom" style="color:#ffffff;font-size:21px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;line-height:1.25;">ASSOCIATION</div>
+                        <div id="receipt-assoc-contact" style="color:#8fc7bd;font-size:11px;font-weight:700;margin-top:5px;letter-spacing:.04em;"></div>
+                    </div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="color:#5eead4;font-size:27px;font-weight:800;text-transform:uppercase;letter-spacing:.16em;line-height:1;">Reçu</div>
+                    <div id="receipt-num" style="color:#8fc7bd;font-size:11px;font-weight:700;margin-top:9px;letter-spacing:.06em;"></div>
+                </div>
             </div>
-            <div class="mb-8"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Reçu de :</p><h3 id="receipt-nom" class="text-xl font-black uppercase text-slate-800"></h3></div>
-            <table class="w-full text-left mb-10 border-collapse">
-                <thead><tr class="border-b-2 border-slate-800"><th class="py-3 font-black uppercase text-[10px] tracking-widest text-slate-400">Motif / Période</th><th class="py-3 text-right font-black uppercase text-[10px] tracking-widest text-slate-400">Montant</th></tr></thead>
-                <tbody><tr><td id="receipt-motif" class="py-5 text-sm font-bold uppercase text-slate-700"></td><td id="receipt-montant" class="py-5 text-right font-black text-2xl" style="color:#0d9488"></td></tr></tbody>
-            </table>
-            <div class="flex justify-between items-center border-t border-slate-200 pt-6">
-                <p class="text-[10px] font-bold text-slate-400 uppercase">Généré par MUTASSO</p><p class="text-[10px] font-black text-slate-800 uppercase italic">Signature / Cachet</p>
+
+            <!-- Corps -->
+            <div style="padding:46px 44px 0;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+                    <div>
+                        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:#94a3b8;">Reçu de</div>
+                        <div id="receipt-nom" style="font-size:26px;font-weight:800;text-transform:uppercase;color:#0f172a;margin-top:9px;letter-spacing:.01em;"></div>
+                    </div>
+                    <div id="receipt-date" style="font-size:12px;font-weight:700;color:#0d9488;background:#f0fdf9;border:1px solid #ccfbf1;border-radius:12px;padding:9px 16px;"></div>
+                </div>
+
+                <div style="margin-top:32px;background:linear-gradient(135deg,#f0fdf9,#ecfdf5);border:1.5px solid #99f6e4;border-radius:22px;padding:30px 34px;display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.18em;color:#667c77;">Objet du paiement</div>
+                        <div id="receipt-motif" style="font-size:18px;font-weight:800;text-transform:uppercase;color:#0f766e;margin-top:10px;line-height:1.3;"></div>
+                    </div>
+                    <div style="text-align:center;background:#ffffff;border:1.5px solid #99f6e4;border-radius:18px;padding:22px 32px;margin-left:26px;">
+                        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.18em;color:#667c77;">Montant réglé</div>
+                        <div id="receipt-montant" style="font-size:29px;font-weight:800;color:#0d9488;margin-top:10px;white-space:nowrap;"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top:26px;padding:18px 24px;border-left:4px solid #0d9488;background:#f8fafc;border-radius:0 14px 14px 0;">
+                    <div style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.18em;color:#94a3b8;">Arrêté le présent reçu à la somme de</div>
+                    <div id="receipt-lettres" style="font-size:13px;font-weight:700;color:#0f172a;margin-top:7px;font-style:italic;"></div>
+                </div>
             </div>
+
+            <!-- Signatures -->
+            <div style="padding:62px 44px 46px;display:flex;justify-content:space-between;align-items:flex-end;">
+                <div style="text-align:center;">
+                    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.16em;color:#667c77;">Signature</div>
+                    <div style="width:210px;height:62px;border-bottom:1.5px dashed #5eead4;"></div>
+                </div>
+                <div style="text-align:center;">
+                    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.16em;color:#667c77;">Cachet de l'association</div>
+                    <div style="width:210px;height:62px;border-bottom:1.5px dashed #5eead4;"></div>
+                </div>
+            </div>
+
+            <!-- Barre d'accent -->
+            <div style="height:10px;background:linear-gradient(90deg,#0d9488,#10b981,#5eead4);"></div>
         </div>
     </div>
 
@@ -292,18 +380,18 @@
         </div>
         <p class="nav-label">Navigation</p>
         <nav class="flex-1 overflow-y-auto space-y-1.5">
-            <div onclick="showPage('dashboard')" id="m-dashboard" class="side-item active"><i data-lucide="layout-grid" class="w-[18px] h-[18px]"></i><span>Dashboard</span></div>
-            <div onclick="showPage('membres')" id="m-membres" class="side-item"><i data-lucide="users" class="w-[18px] h-[18px]"></i><span>Membres</span></div>
-            <div onclick="showPage('reunions')" id="m-reunions" class="side-item"><i data-lucide="file-text" class="w-[18px] h-[18px]"></i><span>Réunions (PV)</span></div>
-            <div onclick="showPage('point')" id="m-point" class="side-item"><i data-lucide="badge-check" class="w-[18px] h-[18px]"></i><span>Point Cotis.</span></div>
-            <div onclick="showPage('bureau')" id="m-bureau" class="side-item"><i data-lucide="shield-check" class="w-[18px] h-[18px]"></i><span>Bureau</span></div>
-            <div onclick="showPage('mensuel')" id="m-mensuel" class="side-item"><i data-lucide="calendar-check" class="w-[18px] h-[18px]"></i><span>Mensualités</span></div>
-            <div onclick="showPage('excep')" id="m-excep" class="side-item"><i data-lucide="star" class="w-[18px] h-[18px]"></i><span>Exceptionnelles</span></div>
-            <div onclick="showPage('depenses')" id="m-depenses" class="side-item"><i data-lucide="trending-down" class="w-[18px] h-[18px]"></i><span>Dépenses</span></div>
-            <div onclick="showPage('rapports')" id="m-rapports" class="side-item"><i data-lucide="file-bar-chart" class="w-[18px] h-[18px]"></i><span>Rapports</span></div>
+            <div onclick="showPage('dashboard'); closeSidebarMobile()" id="m-dashboard" class="side-item active"><i data-lucide="layout-grid" class="w-[18px] h-[18px]"></i><span>Dashboard</span></div>
+            <div onclick="showPage('membres'); closeSidebarMobile()" id="m-membres" class="side-item"><i data-lucide="users" class="w-[18px] h-[18px]"></i><span>Membres</span></div>
+            <div onclick="showPage('reunions'); closeSidebarMobile()" id="m-reunions" class="side-item"><i data-lucide="file-text" class="w-[18px] h-[18px]"></i><span>Réunions (PV)</span></div>
+            <div onclick="showPage('point'); closeSidebarMobile()" id="m-point" class="side-item"><i data-lucide="badge-check" class="w-[18px] h-[18px]"></i><span>Point Cotis.</span></div>
+            <div onclick="showPage('bureau'); closeSidebarMobile()" id="m-bureau" class="side-item"><i data-lucide="shield-check" class="w-[18px] h-[18px]"></i><span>Bureau</span></div>
+            <div onclick="showPage('mensuel'); closeSidebarMobile()" id="m-mensuel" class="side-item"><i data-lucide="calendar-check" class="w-[18px] h-[18px]"></i><span>Mensualités</span></div>
+            <div onclick="showPage('excep'); closeSidebarMobile()" id="m-excep" class="side-item"><i data-lucide="star" class="w-[18px] h-[18px]"></i><span>Exceptionnelles</span></div>
+            <div onclick="showPage('depenses'); closeSidebarMobile()" id="m-depenses" class="side-item"><i data-lucide="trending-down" class="w-[18px] h-[18px]"></i><span>Dépenses</span></div>
+            <div onclick="showPage('rapports'); closeSidebarMobile()" id="m-rapports" class="side-item"><i data-lucide="file-bar-chart" class="w-[18px] h-[18px]"></i><span>Rapports</span></div>
         </nav>
         <p class="nav-label" style="margin-bottom:6px">Système</p>
-        <div onclick="showPage('parametres')" id="m-parametres" class="side-item"><i data-lucide="settings" class="w-[18px] h-[18px]"></i><span>Paramètres</span></div>
+        <div onclick="showPage('parametres'); closeSidebarMobile()" id="m-parametres" class="side-item"><i data-lucide="settings" class="w-[18px] h-[18px]"></i><span>Paramètres</span></div>
         <div class="side-user">
             <div class="side-user-av overflow-hidden" id="side-av"><i data-lucide="building-2" class="w-4 h-4"></i></div>
             <div class="min-w-0 flex-1">
@@ -317,6 +405,9 @@
     <main class="flex-1 flex flex-col overflow-hidden">
         <header class="topbar">
             <div class="flex items-center gap-3">
+                <button onclick="toggleSidebar()" class="lg:hidden theme-btn !w-10 !h-10" aria-label="Menu">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
                 <h2 id="page-title" class="text-[11px] font-black uppercase tracking-[.22em]" style="color:var(--muted)">DASHBOARD</h2>
             </div>
             <div class="flex items-center gap-3">
@@ -325,7 +416,7 @@
             </div>
         </header>
 
-        <div id="main-content" class="flex-1 overflow-y-auto px-8 lg:px-10 py-8">
+        <div id="main-content" class="flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 xl:px-10 py-5 md:py-6 lg:py-8">
 
             <!-- ============ DASHBOARD ============ -->
             <div id="p-dashboard" class="page">
@@ -975,6 +1066,14 @@
 
     </div><!-- /#app-layout -->
 
+    <!-- Mobile Sidebar Overlay -->
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Bouton fermer la sidebar (mobile, visible uniquement quand elle est ouverte) -->
+    <button id="sidebar-close-btn" onclick="toggleSidebar()" class="lg:hidden fixed top-5 right-5 theme-btn" style="display:none;z-index:60">
+        <i data-lucide="x" class="w-5 h-5"></i>
+    </button>
+
     <script src="gas-bridge.js"></script>
     <script>
         lucide.createIcons();
@@ -994,6 +1093,40 @@
         });
         const fmt = n => Number(n || 0).toLocaleString('fr-FR');
         const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+        // Montant en lettres (français) pour les reçus
+        function enLettres(n) {
+            n = Math.floor(Number(n) || 0);
+            if (n === 0) return 'zéro';
+            const u = ['','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','onze','douze','treize','quatorze','quinze','seize','dix-sept','dix-huit','dix-neuf'];
+            const d = ['','','vingt','trente','quarante','cinquante','soixante','','quatre-vingt'];
+            function deux(r) {
+                if (r < 20) return u[r];
+                const dix = Math.floor(r / 10), unit = r % 10;
+                if (dix === 7 || dix === 9) {
+                    const rest = r - (dix - 1) * 10, base = dix === 7 ? 'soixante' : 'quatre-vingt';
+                    if (dix === 7 && (rest === 1 || rest === 11)) return base + ' et ' + u[rest];
+                    return base + '-' + u[rest];
+                }
+                if (unit === 0) return d[dix] + (dix === 8 ? 's' : '');
+                if (unit === 1 && dix !== 8) return d[dix] + ' et un';
+                return d[dix] + '-' + u[unit];
+            }
+            function cent(x) {
+                let s = '';
+                const c = Math.floor(x / 100), r = x % 100;
+                if (c === 1) s += 'cent';
+                else if (c > 1) s += u[c] + ' cent' + (r === 0 ? 's' : '');
+                if (r > 0) s += (c > 0 ? ' ' : '') + deux(r);
+                return s;
+            }
+            const parts = [];
+            const M = Math.floor(n / 1000000), K = Math.floor((n % 1000000) / 1000), R = n % 1000;
+            if (M > 0) parts.push(M === 1 ? 'un million' : cent(M) + ' millions');
+            if (K > 0) parts.push(K === 1 ? 'mille' : cent(K) + ' mille');
+            if (R > 0) parts.push(cent(R));
+            return parts.join(' ');
+        }
 
         /* ============ AUTHENTIFICATION ============ */
         function afficherAuth(mode) {
@@ -1080,6 +1213,24 @@
         function seDeconnecter() {
             localStorage.removeItem('mutasso_token');
             location.reload();
+        }
+
+        /* ============ SIDEBAR MOBILE ============ */
+        function toggleSidebar() {
+            const sb = document.querySelector('.sidebar');
+            const ov = document.getElementById('sidebar-overlay');
+            const cb = document.getElementById('sidebar-close-btn');
+            const ouvert = sb.classList.toggle('open');
+            ov.classList.toggle('open', ouvert);
+            cb.style.display = ouvert ? 'grid' : 'none';
+        }
+        function closeSidebarMobile() {
+            const sb = document.querySelector('.sidebar');
+            const ov = document.getElementById('sidebar-overlay');
+            const cb = document.getElementById('sidebar-close-btn');
+            sb.classList.remove('open');
+            ov.classList.remove('open');
+            cb.style.display = 'none';
         }
 
         /* ============ BRANDING ============ */
@@ -1446,19 +1597,24 @@
             html2pdf().set(opt).from(element).save();
         }
 
-        /* ============ REÇU PDF ============ */
+        /* ============ REÇU PDF (A4 · une page) ============ */
         function generateReceipt(nom, motif, montant, date) {
             document.getElementById('receipt-assoc-nom').innerText = window.assocData.nom || "ASSOCIATION";
-            document.getElementById('receipt-assoc-contact').innerText = `${window.assocData.tel || ''} ${window.assocData.email ? ' - ' + window.assocData.email : ''}`;
-            if (window.assocData.logo) { document.getElementById('receipt-logo').src = window.assocData.logo; document.getElementById('receipt-logo').classList.remove('hidden'); }
-            document.getElementById('receipt-date').innerText = "Le " + date;
+            document.getElementById('receipt-assoc-contact').innerText = `${window.assocData.tel || ''} ${window.assocData.email ? ' - ' + window.assocData.email : ''}`.trim();
+            const logo = document.getElementById('receipt-logo');
+            if (window.assocData.logo) { logo.src = window.assocData.logo; logo.style.display = 'block'; } else { logo.style.display = 'none'; }
+            const dt = date.replace(/\//g, '-');
+            document.getElementById('receipt-num').innerText = 'N° ' + date.replace(/\//g, '') + '-' + String(Math.floor(1000 + Math.random() * 9000));
+            document.getElementById('receipt-date').innerText = 'Émis le ' + date;
             document.getElementById('receipt-nom').innerText = nom;
             document.getElementById('receipt-motif').innerText = motif;
-            document.getElementById('receipt-montant').innerText = parseInt(montant).toLocaleString('fr-FR') + " FCFA";
+            document.getElementById('receipt-montant').innerText = parseInt(montant).toLocaleString('fr-FR') + ' FCFA';
+            document.getElementById('receipt-lettres').innerText = enLettres(montant).replace(/^./, c => c.toUpperCase()) + ' francs CFA';
             const element = document.getElementById('receipt-content');
             element.parentElement.classList.remove('hidden');
-            const opt = { margin: 0.5, filename: `Recu_${nom.replace(/\s+/g, '_')}_${date.replace(/\//g, '')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a5', orientation: 'landscape' } };
-            html2pdf().set(opt).from(element).save().then(() => { element.parentElement.classList.add('hidden'); showToast("Reçu PDF généré !"); });
+            const opt = { margin: 0, filename: `Recu_${nom.replace(/\s+/g, '_')}_${dt}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' }, pagebreak: { avoid: 'all' } };
+            const recacher = () => element.parentElement.classList.add('hidden');
+            html2pdf().set(opt).from(element).save().then(() => { recacher(); showToast("Reçu PDF généré !"); }, () => { recacher(); showToast("Échec de génération du reçu", 'error'); });
         }
 
         /* ============ EXPORT CSV ============ */
