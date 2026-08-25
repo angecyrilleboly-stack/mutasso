@@ -36,7 +36,11 @@
         if (res && res.__error) onFailure(res.__error);
         else onSuccess(res);
       };
-      xhr.onerror = function () { onFailure('Réseau indisponible — le serveur est-il lancé ?'); };
+      xhr.onerror = function () {
+        onFailure(navigator.onLine
+          ? 'Réseau indisponible — le serveur est-il lancé ?'
+          : 'Hors ligne — reconnectez-vous à internet puis réessayez.');
+      };
       xhr.send(JSON.stringify(args));
     } catch (e) {
       onFailure(String(e));
