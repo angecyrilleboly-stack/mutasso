@@ -1,0 +1,17 @@
+{
+  "name": "mutasso",
+  "version": "6.2.0",
+  "description": "MUTASSO PRO — gestion d'associations et mutuelles : membres, cotisations, dépenses, comptes rendus IA et rapports PDF",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "migrer": "node migrer-vers-supabase.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.23.0"
+  }
+}

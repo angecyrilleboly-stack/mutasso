@@ -1,0 +1,28 @@
+# Configuration Render pour MUTASSO
+# Docs : https://render.com/docs/blueprint-spec
+# Ce fichier permet à Render de créer automatiquement le service web.
+
+services:
+  - type: web
+    name: mutasso
+    runtime: node
+    plan: free
+    region: frankfurt  # Europe (le plus proche de la Côte d'Ivoire)
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: NODE_ENV
+        value: production
+      # Base de données Supabase PostgreSQL (À CONFIGURER DANS RENDER)
+      # Supabase > Project Settings > Database > Connection string (URI)
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      # Clé Gemini (Google AI Studio) — À CONFIGURER DANS RENDER
+      - key: GEMINI_API_KEY
+        sync: false

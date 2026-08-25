@@ -1,0 +1,7 @@
+node_modules/
+data/
+uploads/
+.env
+ANCIENNE-BASE*
+public/index-v1-original.html
+*.log

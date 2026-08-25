@@ -1,0 +1,2062 @@
+<!DOCTYPE html>
+<html lang="fr" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MUTASSO PRO v6.2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ============ DESIGN TOKENS ============ */
+        :root, html.light {
+            --bg: #edf3f1;
+            --card: #ffffff;
+            --card-border: rgba(12, 54, 48, 0.09);
+            --field: #f3f7f6;
+            --field-border: #e2ebe8;
+            --text: #12211f;
+            --muted: #667c77;
+            --primary: #0d9488;
+            --in: #059669;
+            --out: #e11d48;
+            --viol: #7c3aed;
+            --row-border: rgba(12, 54, 48, 0.07);
+            --soft-teal: rgba(13, 148, 136, 0.10);
+            --shadow: 0 1px 2px rgba(10, 46, 42, 0.05), 0 12px 28px -14px rgba(10, 46, 42, 0.18);
+        }
+        html.dark {
+            --bg: #081715;
+            --card: #0e2420;
+            --card-border: rgba(255, 255, 255, 0.07);
+            --field: #123029;
+            --field-border: #1b423a;
+            --text: #ecf5f2;
+            --muted: #8fb0a8;
+            --primary: #2dd4bf;
+            --in: #34d399;
+            --out: #fb7185;
+            --viol: #a78bfa;
+            --row-border: rgba(255, 255, 255, 0.07);
+            --soft-teal: rgba(45, 212, 191, 0.12);
+            --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 30px -14px rgba(0, 0, 0, 0.5);
+        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); transition: background .3s, color .3s; }
+
+        /* ============ SCROLLBAR ============ */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: rgba(102, 124, 119, .3); border-radius: 99px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        /* ============ SIDEBAR ============ */
+        .sidebar { width: 272px; shrink: 0; display: flex; flex-direction: column; padding: 26px 18px 20px; background: linear-gradient(180deg, #10433b 0%, #0c332d 55%, #0a2a25 100%); border-right: 1px solid rgba(255,255,255,.06); }
+        .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 22px; }
+        .brand-mark { width: 44px; height: 44px; border-radius: 15px; background: linear-gradient(135deg, #2dd4bf, #0d9488); color: #fff; display: grid; place-items: center; box-shadow: 0 12px 22px -8px rgba(13, 148, 136, .55); }
+        .brand-name { color: #f0fdfa; font-weight: 800; font-size: 19px; letter-spacing: -.02em; font-style: italic; }
+        .brand-sub { color: #6f9b92; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .16em; }
+        .nav-label { color: #5d8a80; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .18em; margin: 16px 12px 8px; }
+        .side-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 13px; color: #9dc3ba; font-weight: 700; font-size: 13px; cursor: pointer; transition: .2s; border: 1px solid transparent; }
+        .side-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+        .side-item.active { background: linear-gradient(135deg, #10b981, #0d9488); color: #fff; box-shadow: 0 12px 22px -8px rgba(16, 185, 129, .45); border-color: rgba(255,255,255,.14); }
+        .side-user { margin-top: auto; display: flex; gap: 12px; align-items: center; padding: 12px 13px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; }
+        .side-user-av { width: 38px; height: 38px; border-radius: 12px; background: rgba(45, 212, 191, .16); color: #5eead4; display: grid; place-items: center; flex-shrink: 0; }
+        .side-user-name { color: #e6fffa; font-weight: 800; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+        .side-user-sub { color: #6f9b92; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
+
+        /* ============ TOPBAR ============ */
+        .topbar { height: 76px; display: flex; align-items: center; justify-content: space-between; padding: 0 36px; background: color-mix(in srgb, var(--card) 82%, transparent); backdrop-filter: blur(14px); border-bottom: 1px solid var(--card-border); flex-shrink: 0; }
+        .theme-btn { width: 42px; height: 42px; border-radius: 14px; background: var(--card); border: 1px solid var(--card-border); color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: .2s; box-shadow: var(--shadow); }
+        .theme-btn:hover { color: var(--primary); transform: scale(1.06); }
+        .topbar-date { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 13px; background: var(--field); border: 1px solid var(--field-border); color: var(--muted); font-size: 11px; font-weight: 800; text-transform: capitalize; }
+
+        /* ============ CARDS & BASE ============ */
+        .app-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 22px; box-shadow: var(--shadow); }
+        .label-style { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; color: var(--muted); margin-bottom: 5px; display: block; }
+        .input-field { width: 100%; background: var(--field); border: 1.5px solid var(--field-border); border-radius: 13px; padding: 11px 14px; font-size: 13px; font-weight: 600; color: var(--text); outline: none; transition: .2s; }
+        .input-field:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--soft-teal); }
+        .page { animation: slideUp .4s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ============ BOUTONS ============ */
+        .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #10b981, #0d9488); color: #fff; border-radius: 13px; padding: 12px 20px; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; border: none; box-shadow: 0 12px 20px -8px rgba(13,148,136,.5); transition: .2s; }
+        .btn-primary:hover { transform: translateY(-1px) scale(1.02); }
+        .btn-primary:disabled { opacity: .7; cursor: wait; }
+        .btn-danger { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #f43f5e, #e11d48); color: #fff; border-radius: 13px; padding: 12px 20px; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; border: none; box-shadow: 0 12px 20px -8px rgba(225,29,72,.45); transition: .2s; }
+        .btn-ghost { display: inline-flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--card-border); color: var(--muted); border-radius: 13px; padding: 11px 16px; font-weight: 800; font-size: 10.5px; text-transform: uppercase; cursor: pointer; transition: .2s; }
+        .btn-ghost:hover { color: var(--primary); border-color: var(--primary); }
+
+        /* ============ CHIPS / PILLS ============ */
+        .chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+        .chip-up { background: #d1fae5; color: #047857; } html.dark .chip-up { background: rgba(16,185,129,.16); color: #6ee7b7; }
+        .chip-down { background: #ffe4e6; color: #be123c; } html.dark .chip-down { background: rgba(244,63,94,.16); color: #fda4af; }
+        .chip-neutral { background: var(--field); color: var(--muted); border: 1px solid var(--field-border); }
+        .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+        .pill-ok { background: #d1fae5; color: #047857; } html.dark .pill-ok { background: rgba(16,185,129,.16); color: #6ee7b7; }
+        .pill-ko { background: #ffe4e6; color: #be123c; } html.dark .pill-ko { background: rgba(244,63,94,.16); color: #fda4af; }
+        .periode-pill { background: var(--soft-teal); color: var(--primary); }
+        .motif-pill { background: rgba(124, 58, 237, .1); color: var(--viol); }
+        .date-pill { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; background: var(--field); border: 1px solid var(--field-border); color: var(--muted); font-size: 11px; font-weight: 800; white-space: nowrap; }
+
+        /* ============ TABLES ============ */
+        .app-table { width: 100%; text-align: left; border-collapse: collapse; }
+        .app-table th { padding: 15px 22px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); border-bottom: 1px solid var(--card-border); background: color-mix(in srgb, var(--field) 60%, transparent); }
+        .app-table td { padding: 15px 22px; font-size: 13px; border-bottom: 1px solid var(--row-border); vertical-align: middle; }
+        .app-table tbody tr { transition: background .15s; }
+        .app-table tbody tr:hover { background: var(--soft-teal); }
+        .app-table tbody tr:last-child td { border-bottom: none; }
+        .t-name { font-weight: 800; text-transform: uppercase; font-size: 12.5px; letter-spacing: .01em; }
+        .t-sub { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-top: 2px; }
+        .td-amount { font-weight: 900; font-size: 14.5px; text-align: right; white-space: nowrap; }
+        .td-in { color: var(--in); } .td-out { color: var(--out); } .td-viol { color: var(--viol); }
+        .avatar-sm { width: 38px; height: 38px; border-radius: 13px; background: linear-gradient(135deg, rgba(45,212,191,.22), rgba(13,148,136,.16)); color: var(--primary); font-weight: 900; font-size: 11px; display: grid; place-items: center; flex-shrink: 0; border: 1px solid var(--soft-teal); }
+        .icon-btn { width: 34px; height: 34px; border-radius: 11px; display: inline-grid; place-items: center; color: var(--muted); cursor: pointer; transition: .15s; border: none; background: transparent; }
+        .icon-btn:hover { background: var(--soft-teal); color: var(--primary); }
+        .icon-btn.red:hover { background: rgba(225,29,72,.1); color: var(--out); }
+        .icon-btn.amber:hover { background: rgba(217,119,6,.12); color: #d97706; }
+        .receipt-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--soft-teal); color: var(--primary); padding: 8px 13px; border-radius: 10px; font-size: 10px; font-weight: 800; text-transform: uppercase; cursor: pointer; border: none; transition: .15s; }
+        .receipt-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
+        .empty-cell { padding: 44px 20px !important; text-align: center; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+        .empty-cell svg { display: block; margin: 0 auto 10px; opacity: .5; }
+
+        /* ============ DASHBOARD ============ */
+        .hero-card { position: relative; overflow: hidden; border-radius: 24px; padding: 30px; color: #fff; background: linear-gradient(130deg, #124e44 0%, #0c362f 55%, #0a2b26 100%); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 24px 44px -18px rgba(10, 46, 42, .55); }
+        .hero-orb { position: absolute; border-radius: 50%; pointer-events: none; }
+        .stat-card { padding: 22px; }
+        .icon-tile { width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; flex-shrink: 0; }
+        .it-teal { background: var(--soft-teal); color: var(--primary); }
+        .it-blue { background: rgba(59,130,246,.12); color: #3b82f6; }
+        .it-rose { background: rgba(225,29,72,.1); color: var(--out); }
+        .it-viol { background: rgba(124,58,237,.1); color: var(--viol); }
+        .spark { display: flex; gap: 3px; align-items: flex-end; height: 34px; margin-top: 14px; }
+        .spark i { flex: 1; border-radius: 3px; min-height: 5px; opacity: .9; }
+        .av-c { width: 34px; height: 34px; border-radius: 999px; background: linear-gradient(135deg, #99f6e4, #5eead4); color: #0f766e; font-weight: 900; font-size: 10px; display: grid; place-items: center; border: 2px solid var(--card); }
+        .av-c.more { background: var(--field); color: var(--muted); border-color: var(--field-border); }
+        .r-op { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px dashed var(--row-border); }
+        .r-op:last-child { border-bottom: none; }
+        .r-dot { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; }
+
+        /* ============ FILTRES ============ */
+        .filter-bar { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; padding: 18px 22px; }
+
+        /* ============ MODALS ============ */
+        .modal-wrap { position: fixed; inset: 0; z-index: 60; background: rgba(7, 26, 23, .6); backdrop-filter: blur(7px); padding: 22px; overflow-y: auto; }
+        .modal-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 26px; box-shadow: 0 40px 80px -20px rgba(0,0,0,.45); width: 100%; }
+        .modal-ic { width: 44px; height: 44px; border-radius: 15px; display: grid; place-items: center; flex-shrink: 0; }
+        .btn-cancel { background: var(--field); border: 1px solid var(--field-border); color: var(--muted); border-radius: 13px; padding: 12px 18px; font-weight: 800; font-size: 10.5px; text-transform: uppercase; cursor: pointer; transition: .2s; }
+        .btn-cancel:hover { color: var(--text); }
+
+        /* ============ TOASTS ============ */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; pointer-events: none; }
+        .toast { pointer-events: auto; animation: slideIn .3s ease-out; border-radius: 15px; display: flex; align-items: center; gap: 10px; padding: 13px 18px; margin-bottom: 10px; font-weight: 800; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; box-shadow: 0 18px 34px -12px rgba(0,0,0,.3); border: 1px solid transparent; }
+        @keyframes slideIn { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast-success { background: #059669; color: #fff; }
+        .toast-error { background: #e11d48; color: #fff; }
+        .toast-info { background: #0d9488; color: #fff; }
+
+        /* ============ CHECKBOX ============ */
+        .custom-checkbox { appearance: none; background-color: var(--field); margin: 0; border: 2px solid var(--field-border); border-radius: 7px; width: 19px; height: 19px; display: grid; place-content: center; cursor: pointer; transition: .2s; flex-shrink: 0; }
+        .custom-checkbox::before { content: ""; width: 11px; height: 11px; transform: scale(0); transition: 120ms transform ease-in-out; box-shadow: inset 1em 1em #fff; transform-origin: center; clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%); }
+        .custom-checkbox:checked { background-color: #0d9488; border-color: #0d9488; }
+        .custom-checkbox:checked::before { transform: scale(1); }
+
+        /* ============ AUTHENTIFICATION ============ */
+        .auth-tab { flex: 1; padding: 11px; border-radius: 13px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); cursor: pointer; transition: .2s; border: none; background: transparent; }
+        .auth-tab.active { background: var(--card); color: var(--primary); box-shadow: var(--shadow); }
+        .auth-feature { display: flex; align-items: center; gap: 13px; color: #c9e8e1; font-size: 13px; font-weight: 700; }
+        .auth-feature-ic { width: 40px; height: 40px; border-radius: 13px; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.13); display: grid; place-items: center; color: #5eead4; flex-shrink: 0; }
+        .icon-btn.logout:hover { background: rgba(248,113,113,.15); color: #f87171; }
+
+        /* ============ PARAMETRES TILES ============ */
+        .tile-hover { transition: .25s; cursor: pointer; }
+        .tile-hover:hover { transform: translateY(-4px); box-shadow: 0 22px 40px -16px rgba(10, 46, 42, .3); border-color: var(--primary); }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <!-- ============ ECRAN CONNEXION / INSCRIPTION ============ -->
+    <div id="auth-screen" class="fixed inset-0 z-[100] hidden items-center justify-center overflow-hidden" style="background:linear-gradient(155deg,#135046 0%,#0e3d34 42%,#08211c 100%)">
+        <!-- Halos lumineux pleine page -->
+        <div class="hero-orb" style="width:560px;height:560px;top:-200px;right:-160px;background:radial-gradient(circle at 30% 30%, #5eead4, transparent 70%);opacity:.17"></div>
+        <div class="hero-orb" style="width:420px;height:420px;bottom:-170px;left:-120px;background:radial-gradient(circle at 30% 30%, #34d399, transparent 70%);opacity:.14"></div>
+        <div class="hero-orb" style="width:280px;height:280px;top:38%;left:30%;background:radial-gradient(circle at 30% 30%, #2dd4bf, transparent 70%);opacity:.08"></div>
+        <div class="hero-orb" style="width:200px;height:200px;bottom:12%;right:28%;background:radial-gradient(circle at 30% 30%, #99f6e4, transparent 70%);opacity:.07"></div>
+
+        <div class="relative w-full h-full max-w-[1560px] mx-auto grid lg:grid-cols-[1.1fr_1fr] gap-12 items-center px-6 sm:px-10 lg:px-16 py-8 overflow-y-auto">
+            <!-- Pitch (pleine page verte) -->
+            <div class="hidden lg:flex flex-col justify-center gap-11 py-6">
+                <div class="flex items-center gap-4">
+                    <div class="brand-mark" style="width:52px;height:52px;border-radius:17px"><i data-lucide="heart-handshake" class="w-6 h-6"></i></div>
+                    <div><p class="brand-name" style="font-size:24px">MUTASSO</p><p class="brand-sub">Gestion associative</p></div>
+                </div>
+                <div>
+                    <h1 class="text-white text-[44px] font-black leading-[1.15] tracking-tight">La caisse de votre<br>association, <span style="color:#5eead4">en toute clarté.</span></h1>
+                    <p class="text-[14px] font-semibold mt-5 leading-relaxed" style="color:#a8d2c9;max-width:470px">Inscrivez votre association une seule fois, puis retrouvez vos membres, cotisations, dépenses et comptes rendus au même endroit.</p>
+                </div>
+                <div class="space-y-4">
+                    <div class="auth-feature" style="font-size:14px"><div class="auth-feature-ic" style="width:44px;height:44px;border-radius:14px"><i data-lucide="users" class="w-5 h-5"></i></div>Membres, bureau et point de cotisation</div>
+                    <div class="auth-feature" style="font-size:14px"><div class="auth-feature-ic" style="width:44px;height:44px;border-radius:14px"><i data-lucide="banknote" class="w-5 h-5"></i></div>Reçus PDF et bilan financier annuel</div>
+                    <div class="auth-feature" style="font-size:14px"><div class="auth-feature-ic" style="width:44px;height:44px;border-radius:14px"><i data-lucide="file-text" class="w-5 h-5"></i></div>Comptes rendus rédigés par l'IA</div>
+                </div>
+                <p class="text-[10px] font-bold uppercase tracking-[.2em]" style="color:#5d8a80">MUTASSO PRO v6.2 — Espace association</p>
+            </div>
+            <!-- Formulaires -->
+            <div class="flex items-center justify-center lg:justify-end w-full">
+                <div class="w-full max-w-md">
+                    <div class="flex items-center gap-3 mb-7 lg:hidden">
+                        <div class="brand-mark"><i data-lucide="heart-handshake" class="w-5 h-5"></i></div>
+                        <div><p class="brand-name" style="color:#ffffff;font-size:20px">MUTASSO</p></div>
+                    </div>
+                    <div class="app-card p-8" style="box-shadow:0 45px 90px -25px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14)">
+                        <div class="flex gap-1.5 p-1.5 rounded-[18px] mb-7" style="background:var(--field);border:1px solid var(--field-border)">
+                            <button id="tab-login" onclick="afficherAuth('login')" class="auth-tab active">Connexion</button>
+                            <button id="tab-signup" onclick="afficherAuth('signup')" class="auth-tab">Inscription</button>
+                        </div>
+
+                        <form id="form-login" class="space-y-4">
+                            <div><label class="label-style">Email de l'association</label><input type="email" name="email" required class="input-field" placeholder="association@email.com" autocomplete="username"></div>
+                            <div><label class="label-style">Mot de passe</label><input type="password" name="mdp" required class="input-field" placeholder="••••••••" autocomplete="current-password"></div>
+                            <p id="login-err" class="text-[11px] font-bold hidden" style="color:var(--out)"></p>
+                            <button type="submit" class="btn-primary w-full justify-center !py-4"><i data-lucide="log-in" class="w-4 h-4"></i>Se connecter</button>
+                            <p class="text-center text-[11px] font-bold" style="color:var(--muted)">Première utilisation ? <span class="cursor-pointer underline" style="color:var(--primary)" onclick="afficherAuth('signup')">Créer le compte</span></p>
+                        </form>
+
+                        <form id="form-signup" class="space-y-4 hidden">
+                            <div class="flex items-center gap-4">
+                                <div id="auth-logo-preview" class="w-[72px] h-[72px] rounded-2xl grid place-items-center overflow-hidden shrink-0" style="background:var(--field);border:1.5px dashed var(--field-border)"><i data-lucide="image" class="w-6 h-6" style="color:var(--field-border)"></i></div>
+                                <div>
+                                    <label class="btn-ghost cursor-pointer">Choisir le logo<input type="file" accept="image/*" class="hidden" onchange="handleAuthLogo(this)"></label>
+                                    <p class="text-[9.5px] font-bold mt-2" style="color:var(--muted)">Logo de l'association · JPG/PNG · 2 Mo max</p>
+                                    <input type="hidden" id="auth-logo-data">
+                                </div>
+                            </div>
+                            <div><label class="label-style">Nom de l'association / mutuelle</label><input type="text" name="nom" required class="input-field uppercase" placeholder="Ex: MUTUELLE ESPOIR"></div>
+                            <div><label class="label-style">Contact (téléphone)</label><input type="text" name="contact" class="input-field" placeholder="Ex: 07 00 00 00 00"></div>
+                            <div><label class="label-style">Email (identifiant)</label><input type="email" name="email" required class="input-field" placeholder="association@email.com" autocomplete="username"></div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div><label class="label-style">Mot de passe</label><input type="password" name="mdp" required minlength="6" class="input-field" placeholder="6 car. min." autocomplete="new-password"></div>
+                                <div><label class="label-style">Confirmer</label><input type="password" name="mdp2" required class="input-field" placeholder="Répéter" autocomplete="new-password"></div>
+                            </div>
+                            <p id="signup-err" class="text-[11px] font-bold hidden" style="color:var(--out)"></p>
+                            <button type="submit" class="btn-primary w-full justify-center !py-4"><i data-lucide="user-plus" class="w-4 h-4"></i>Créer le compte</button>
+                            <p class="text-center text-[11px] font-bold" style="color:var(--muted)">Déjà un compte ? <span class="cursor-pointer underline" style="color:var(--primary)" onclick="afficherAuth('login')">Se connecter</span></p>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ APPLICATION ============ -->
+    <div id="app-layout" class="flex h-screen overflow-hidden hidden">
+
+    <!-- MODAL CONFIRMATION -->
+    <div id="modal-confirm" class="modal-wrap hidden items-center justify-center z-[9999]">
+        <div class="modal-card max-w-sm p-8 text-center">
+            <div class="w-16 h-16 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-5" style="background:rgba(225,29,72,.1)"><i data-lucide="alert-triangle" class="w-7 h-7"></i></div>
+            <h4 class="text-lg font-black mb-2 uppercase tracking-tight">Confirmation</h4>
+            <p id="confirm-msg" class="text-sm mb-7 font-semibold" style="color:var(--muted)"></p>
+            <div class="flex gap-3">
+                <button id="confirm-yes" class="btn-danger flex-1 justify-center">Confirmer</button>
+                <button onclick="closeConfirm()" class="btn-cancel flex-1">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEMPLATE REÇU (impression PDF) -->
+    <div id="receipt-container" class="hidden">
+        <div id="receipt-content" class="bg-white p-10 text-slate-800 w-[600px] border border-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-200 pb-6 mb-6">
+                <div class="flex items-center gap-4"><img id="receipt-logo" src="" class="w-16 h-16 object-cover rounded-xl hidden"><div><h2 id="receipt-assoc-nom" class="text-xl font-black uppercase" style="color:#0d9488">ASSOC</h2><p id="receipt-assoc-contact" class="text-xs font-bold text-slate-500"></p></div></div>
+                <div class="text-right"><h1 class="text-3xl font-black text-slate-900 uppercase">REÇU</h1><p id="receipt-date" class="text-sm font-bold text-slate-400"></p></div>
+            </div>
+            <div class="mb-8"><p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Reçu de :</p><h3 id="receipt-nom" class="text-xl font-black uppercase text-slate-800"></h3></div>
+            <table class="w-full text-left mb-10 border-collapse">
+                <thead><tr class="border-b-2 border-slate-800"><th class="py-3 font-black uppercase text-[10px] tracking-widest text-slate-400">Motif / Période</th><th class="py-3 text-right font-black uppercase text-[10px] tracking-widest text-slate-400">Montant</th></tr></thead>
+                <tbody><tr><td id="receipt-motif" class="py-5 text-sm font-bold uppercase text-slate-700"></td><td id="receipt-montant" class="py-5 text-right font-black text-2xl" style="color:#0d9488"></td></tr></tbody>
+            </table>
+            <div class="flex justify-between items-center border-t border-slate-200 pt-6">
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Généré par MUTASSO</p><p class="text-[10px] font-black text-slate-800 uppercase italic">Signature / Cachet</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ LAYOUT ============ -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark overflow-hidden" id="brand-mark"><i data-lucide="heart-handshake" class="w-5 h-5"></i></div>
+            <div class="min-w-0"><p class="brand-name truncate" id="brand-nom" title="MUTASSO">MUTASSO</p><p class="brand-sub" id="brand-sub">Gestion associative</p></div>
+        </div>
+        <p class="nav-label">Navigation</p>
+        <nav class="flex-1 overflow-y-auto space-y-1.5">
+            <div onclick="showPage('dashboard')" id="m-dashboard" class="side-item active"><i data-lucide="layout-grid" class="w-[18px] h-[18px]"></i><span>Dashboard</span></div>
+            <div onclick="showPage('membres')" id="m-membres" class="side-item"><i data-lucide="users" class="w-[18px] h-[18px]"></i><span>Membres</span></div>
+            <div onclick="showPage('reunions')" id="m-reunions" class="side-item"><i data-lucide="file-text" class="w-[18px] h-[18px]"></i><span>Réunions (PV)</span></div>
+            <div onclick="showPage('point')" id="m-point" class="side-item"><i data-lucide="badge-check" class="w-[18px] h-[18px]"></i><span>Point Cotis.</span></div>
+            <div onclick="showPage('bureau')" id="m-bureau" class="side-item"><i data-lucide="shield-check" class="w-[18px] h-[18px]"></i><span>Bureau</span></div>
+            <div onclick="showPage('mensuel')" id="m-mensuel" class="side-item"><i data-lucide="calendar-check" class="w-[18px] h-[18px]"></i><span>Mensualités</span></div>
+            <div onclick="showPage('excep')" id="m-excep" class="side-item"><i data-lucide="star" class="w-[18px] h-[18px]"></i><span>Exceptionnelles</span></div>
+            <div onclick="showPage('depenses')" id="m-depenses" class="side-item"><i data-lucide="trending-down" class="w-[18px] h-[18px]"></i><span>Dépenses</span></div>
+            <div onclick="showPage('rapports')" id="m-rapports" class="side-item"><i data-lucide="file-bar-chart" class="w-[18px] h-[18px]"></i><span>Rapports</span></div>
+        </nav>
+        <p class="nav-label" style="margin-bottom:6px">Système</p>
+        <div onclick="showPage('parametres')" id="m-parametres" class="side-item"><i data-lucide="settings" class="w-[18px] h-[18px]"></i><span>Paramètres</span></div>
+        <div class="side-user">
+            <div class="side-user-av overflow-hidden" id="side-av"><i data-lucide="building-2" class="w-4 h-4"></i></div>
+            <div class="min-w-0 flex-1">
+                <p id="side-assoc" class="side-user-name">Association</p>
+                <p id="side-email" class="side-user-sub">Espace bureau</p>
+            </div>
+            <button onclick="seDeconnecter()" class="icon-btn logout" title="Se déconnecter"><i data-lucide="log-out" class="w-4 h-4"></i></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col overflow-hidden">
+        <header class="topbar">
+            <div class="flex items-center gap-3">
+                <h2 id="page-title" class="text-[11px] font-black uppercase tracking-[.22em]" style="color:var(--muted)">DASHBOARD</h2>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="topbar-date" id="top-date"><i data-lucide="calendar-days" class="w-3.5 h-3.5"></i><span id="top-date-txt"></span></div>
+                <button onclick="toggleDarkMode()" class="theme-btn"><i id="theme-icon" data-lucide="moon" class="w-4 h-4"></i></button>
+            </div>
+        </header>
+
+        <div id="main-content" class="flex-1 overflow-y-auto px-8 lg:px-10 py-8">
+
+            <!-- ============ DASHBOARD ============ -->
+            <div id="p-dashboard" class="page">
+                <div class="flex flex-wrap items-end justify-between gap-4 mb-7">
+                    <div>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none">Vue d'ensemble</h3>
+                        <p id="dash-date" class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)"></p>
+                    </div>
+                    <span class="chip chip-neutral"><i data-lucide="activity" class="w-3 h-3"></i><span id="dash-year">Exercice 2026</span></span>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <!-- CARTE HÉROS : SOLDE -->
+                    <div class="hero-card xl:col-span-2 flex flex-col justify-between min-h-[210px]">
+                        <div class="hero-orb" style="width:260px;height:260px;top:-110px;right:-60px;background:radial-gradient(circle at 30% 30%, #5eead4, transparent 70%);opacity:.16"></div>
+                        <div class="hero-orb" style="width:180px;height:180px;bottom:-80px;left:30%;background:radial-gradient(circle at 30% 30%, #34d399, transparent 70%);opacity:.12"></div>
+                        <div class="flex items-start justify-between gap-4 relative">
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-[.2em]" style="color:#8fc7bd">Solde de caisse (FCFA)</p>
+                                <h3 id="stat-caisse" class="text-[42px] leading-none font-black tracking-tight mt-3">0 FCFA</h3>
+                            </div>
+                            <div class="w-14 h-14 rounded-2xl grid place-items-center" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14)"><i data-lucide="wallet" class="w-6 h-6" style="color:#5eead4"></i></div>
+                        </div>
+                        <div class="flex items-center gap-3 mt-5 relative">
+                            <span id="chip-caisse"></span>
+                            <p class="text-[10.5px] font-bold" style="color:#8fc7bd">Entrées − sorties · ce mois vs mois dernier</p>
+                        </div>
+                    </div>
+
+                    <!-- ANNEAU : RECOUVREMENT -->
+                    <div class="app-card p-7 flex flex-col items-center justify-center text-center">
+                        <p class="label-style" style="margin-bottom:14px">Taux de recouvrement</p>
+                        <div class="relative w-[150px] h-[150px]">
+                            <svg viewBox="0 0 120 120" class="w-full h-full -rotate-90">
+                                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--soft-teal)" stroke-width="11"/>
+                                <circle id="ring-arc" cx="60" cy="60" r="52" fill="none" stroke="url(#gradRing)" stroke-width="11" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7" style="transition:stroke-dashoffset .8s ease-out"/>
+                                <defs><linearGradient id="gradRing" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#0d9488"/></linearGradient></defs>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span id="ring-pct" class="text-[28px] font-black tracking-tight">0%</span>
+                                <span class="text-[8.5px] font-black uppercase tracking-[.18em]" style="color:var(--muted)">à jour</span>
+                            </div>
+                        </div>
+                        <p id="ring-month" class="t-name mt-4" style="color:var(--primary)">—</p>
+                        <p id="ring-sub" class="text-[11px] font-bold" style="color:var(--muted)">Chargement…</p>
+                    </div>
+
+                    <!-- EFFECTIF -->
+                    <div class="app-card stat-card flex items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <p class="label-style">Effectif global</p>
+                            <h3 id="stat-count" class="text-[30px] font-black tracking-tight leading-none">0</h3>
+                            <div id="chip-hf" class="mt-3"></div>
+                            <div id="stat-avatars" class="flex -space-x-2.5 mt-4"></div>
+                        </div>
+                        <div class="icon-tile it-teal"><i data-lucide="users" class="w-5 h-5"></i></div>
+                    </div>
+
+                    <!-- ENTRÉES MOIS -->
+                    <div class="app-card stat-card">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="label-style">Entrées du mois (FCFA)</p>
+                                <h3 id="stat-in" class="text-[30px] font-black tracking-tight leading-none" style="color:var(--in)">0</h3>
+                            </div>
+                            <div class="icon-tile it-teal"><i data-lucide="banknote" class="w-5 h-5"></i></div>
+                        </div>
+                        <div id="chip-in" class="mt-3"></div>
+                        <div class="spark" id="spark-in"></div>
+                    </div>
+
+                    <!-- SORTIES MOIS -->
+                    <div class="app-card stat-card">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="label-style">Sorties du mois (FCFA)</p>
+                                <h3 id="stat-out" class="text-[30px] font-black tracking-tight leading-none" style="color:var(--out)">0</h3>
+                            </div>
+                            <div class="icon-tile it-rose"><i data-lucide="arrow-up-right" class="w-5 h-5"></i></div>
+                        </div>
+                        <div id="chip-out" class="mt-3"></div>
+                        <div class="spark" id="spark-out"></div>
+                    </div>
+
+                    <!-- GRAPHIQUE ANNUEL -->
+                    <div class="app-card p-7 xl:col-span-2">
+                        <div class="flex items-center justify-between mb-5">
+                            <div>
+                                <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Bilan financier annuel</h3>
+                                <p class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color:var(--muted)">Entrées et sorties par mois</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <span class="chip chip-neutral"><span class="w-2 h-2 rounded-full" style="background:var(--in)"></span>Entrées</span>
+                                <span class="chip chip-neutral"><span class="w-2 h-2 rounded-full" style="background:var(--out)"></span>Sorties</span>
+                            </div>
+                        </div>
+                        <div class="w-full h-[290px]"><canvas id="financeChart"></canvas></div>
+                    </div>
+
+                    <!-- DERNIÈRES OPÉRATIONS -->
+                    <div class="app-card p-7">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Dernières opérations</h3>
+                            <div class="icon-tile it-teal" style="width:36px;height:36px;border-radius:12px"><i data-lucide="history" class="w-4 h-4"></i></div>
+                        </div>
+                        <div id="recent-ops"><p class="text-xs italic font-bold py-6 text-center" style="color:var(--muted)">Chargement…</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ MEMBRES ============ -->
+            <div id="p-membres" class="page hidden">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-7">
+                    <div>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--primary)"></span>Membres</h3>
+                        <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Registre des adhérents</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="exportCSV('table-membres', 'Membres.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
+                        <button onclick="toggleModal('modal-membre', true)" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Nouveau</button>
+                    </div>
+                </div>
+                <div class="app-card overflow-hidden">
+                    <table class="app-table">
+                        <thead><tr><th>Membre</th><th>Contact</th><th>Profil</th><th class="text-right !pr-8">Détails</th></tr></thead>
+                        <tbody id="table-membres"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ============ RÉUNIONS ============ -->
+            <div id="p-reunions" class="page hidden">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-7">
+                    <div>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--primary)"></span>Réunions</h3>
+                        <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Procès-verbaux archivés</p>
+                    </div>
+                    <button onclick="openModalReunion()" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Nouvelle réunion</button>
+                </div>
+                <div class="app-card overflow-hidden">
+                    <table class="app-table">
+                        <thead><tr><th>Date</th><th>Objet</th><th class="text-right !pr-8">Actions</th></tr></thead>
+                        <tbody id="table-reunions"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ============ POINT COTISATION ============ -->
+            <div id="p-point" class="page hidden">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-7">
+                    <div>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--primary)"></span>Vérification</h3>
+                        <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Contrôle des paiements</p>
+                    </div>
+                    <button onclick="exportCSV('table-point', 'Verification.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
+                </div>
+                <div class="app-card filter-bar mb-6">
+                    <div>
+                        <label class="label-style">Type de point</label>
+                        <select id="point-type" class="input-field !w-auto rounded-xl" onchange="togglePointFilters()">
+                            <option value="mensuel">Mensualité globale</option>
+                            <option value="excep">Cotisation exceptionnelle</option>
+                        </select>
+                    </div>
+                    <div id="filter-point-mensuel" class="flex flex-1 gap-4 min-w-[280px]">
+                        <div class="flex-1"><label class="label-style">Mois</label><select id="point-mois" class="input-field rounded-xl"><option>Janvier</option><option>Février</option><option>Mars</option><option>Avril</option><option>Mai</option><option>Juin</option><option>Juillet</option><option>Août</option><option>Septembre</option><option>Octobre</option><option>Novembre</option><option>Décembre</option></select></div>
+                        <div class="flex-1"><label class="label-style">Année</label><input type="number" id="point-annee" value="2026" class="input-field rounded-xl"></div>
+                    </div>
+                    <div id="filter-point-excep" class="flex-1 hidden min-w-[220px]">
+                        <div class="w-full"><label class="label-style">Sélectionner le motif spécial</label><select id="point-motif" class="input-field rounded-xl"><option value="">Chargement…</option></select></div>
+                    </div>
+                    <button onclick="loadPointPaiement()" class="btn-primary"><i data-lucide="search" class="w-4 h-4"></i>Analyser</button>
+                </div>
+                <div class="app-card overflow-hidden">
+                    <table class="app-table">
+                        <thead><tr><th>Membre</th><th class="text-right !pr-8">Statut du paiement</th></tr></thead>
+                        <tbody id="table-point"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ============ BUREAU ============ -->
+            <div id="p-bureau" class="page hidden">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-7">
+                    <div>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--primary)"></span>Bureau</h3>
+                        <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Membres du comité et composition</p>
+                    </div>
+                    <button onclick="openNomination()" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Nommer</button>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <div class="xl:col-span-2 app-card overflow-hidden self-start">
+                        <table class="app-table">
+                            <thead><tr><th>Nom</th><th class="text-right !pr-8">Poste</th></tr></thead>
+                            <tbody id="table-bureau"></tbody>
+                        </table>
+                    </div>
+                    <div class="app-card p-7 flex flex-col self-start">
+                        <div class="flex items-start justify-between gap-4 mb-5">
+                            <div>
+                                <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Postes du bureau</h3>
+                                <p class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color:var(--muted)">Composition propre à votre association</p>
+                            </div>
+                            <div class="icon-tile it-blue" style="width:40px;height:40px;border-radius:13px"><i data-lucide="shield-plus" class="w-4 h-4"></i></div>
+                        </div>
+                        <div id="list-postes" class="space-y-2 flex-1 overflow-y-auto pr-1 mb-5 min-h-[60px]"></div>
+                        <form id="form-poste" class="p-3 rounded-[18px] flex gap-2 shrink-0" style="background:var(--field);border:1px solid var(--field-border)">
+                            <input type="hidden" id="edit-p-id">
+                            <input type="text" id="p-label" required class="input-field uppercase" placeholder="Ex: Président…">
+                            <button type="submit" class="btn-primary !px-4 justify-center" id="btn-poste"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                        </form>
+                        <p class="text-[9.5px] font-bold mt-3 leading-relaxed" style="color:var(--muted)">Ces postes alimentent la liste « Nommer ». Créez ici la composition réelle de votre bureau.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ MENSUALITÉS ============ -->
+            <div id="p-mensuel" class="page hidden">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-7">
+                    <div>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--in)"></span>Mensualités</h3>
+                        <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Cotisations mensuelles</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="exportCSV('table-mensuel', 'Mensualites.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
+                        <button onclick="openModalPaiement('mensuel')" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Encaisser</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
+                    <div>
+                        <div class="app-card filter-bar mb-6">
+                            <div class="flex-1 min-w-[180px]"><label class="label-style">Filtrage</label><select id="search-m-mois" class="input-field rounded-xl"><option value="">Tous les mois</option><option>Janvier</option><option>Février</option><option>Mars</option><option>Avril</option><option>Mai</option><option>Juin</option><option>Juillet</option><option>Août</option><option>Septembre</option><option>Octobre</option><option>Novembre</option><option>Décembre</option></select></div>
+                            <div class="flex-1 min-w-[130px]"><label class="label-style">Année</label><input type="number" id="search-m-annee" value="2026" class="input-field rounded-xl"></div>
+                            <button onclick="loadMensuel()" class="btn-primary"><i data-lucide="search" class="w-4 h-4"></i>Chercher</button>
+                        </div>
+                        <div class="app-card overflow-hidden">
+                            <table class="app-table">
+                                <thead><tr><th>Membre</th><th>Période</th><th class="text-right">Montant</th><th class="text-right !pr-8">Reçu</th></tr></thead>
+                                <tbody id="table-mensuel"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="app-card p-7 flex flex-col">
+                        <div class="flex items-start justify-between gap-4 mb-5">
+                            <div>
+                                <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Mensualité</h3>
+                                <p class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color:var(--muted)">Montant unique de la cotisation</p>
+                            </div>
+                            <div class="icon-tile it-teal" style="width:40px;height:40px;border-radius:13px"><i data-lucide="banknote" class="w-4 h-4"></i></div>
+                        </div>
+                        <div id="mensualite-config" class="flex items-center gap-4 p-4 rounded-2xl mb-5" style="background:var(--field);border:1px solid var(--field-border)">
+                            <div class="icon-tile it-teal" style="width:44px;height:44px"><i data-lucide="lock" class="w-4 h-4"></i></div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-[10px] font-black uppercase tracking-widest" style="color:var(--muted)">Mensualité</p>
+                                <p id="mensualite-montant" class="text-[22px] font-black leading-none" style="color:var(--in)">—</p>
+                            </div>
+                        </div>
+                        <form id="form-type-mensuel" class="p-4 rounded-[18px] space-y-3 shrink-0" style="background:var(--field);border:1px solid var(--field-border)">
+                            <div><label class="label-style">Montant de la mensualité (FCFA)</label><input type="number" id="m-val" required class="input-field" placeholder="Ex: 1000"></div>
+                            <button type="submit" class="btn-primary w-full justify-center"><i data-lucide="check" class="w-4 h-4"></i>Enregistrer</button>
+                        </form>
+                        <p class="text-[9.5px] font-bold mt-3 leading-relaxed" style="color:var(--muted)">Ce montant unique s'applique à tous les membres lors de l'encaissement et du point de cotisation.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ EXCEPTIONNELLES ============ -->
+            <div id="p-excep" class="page hidden">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-7">
+                    <div>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--viol)"></span>Spéciales</h3>
+                        <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Cotisations exceptionnelles</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="exportCSV('table-excep', 'Exceptionnelles.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
+                        <button onclick="openModalPaiement('excep')" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Encaisser</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
+                    <div>
+                        <div class="app-card filter-bar mb-6">
+                            <div class="flex-1 min-w-[200px]"><label class="label-style">Motif</label><select id="search-e-motif" class="input-field rounded-xl"><option value="">Toutes</option></select></div>
+                            <button onclick="loadExcep()" class="btn-primary"><i data-lucide="search" class="w-4 h-4"></i>Filtrer</button>
+                        </div>
+                        <div class="app-card overflow-hidden">
+                            <table class="app-table">
+                                <thead><tr><th>Membre</th><th>Motif</th><th class="text-right">Montant</th><th class="text-right !pr-8">Reçu</th></tr></thead>
+                                <tbody id="table-excep"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="app-card p-7 flex flex-col">
+                        <div class="flex items-start justify-between gap-4 mb-5">
+                            <div>
+                                <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Motifs spéciaux</h3>
+                                <p class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color:var(--muted)">Vos cotisations exceptionnelles</p>
+                            </div>
+                            <div class="icon-tile it-viol" style="width:40px;height:40px;border-radius:13px"><i data-lucide="star" class="w-4 h-4"></i></div>
+                        </div>
+                        <div id="list-excep-types" class="space-y-2 flex-1 overflow-y-auto pr-1 mb-5 min-h-[60px]"></div>
+                        <form id="form-type-excep" class="p-4 rounded-[18px] space-y-3 shrink-0" style="background:var(--field);border:1px solid var(--field-border)">
+                            <input type="hidden" id="edit-e-id">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="label-style">Libellé</label><input type="text" id="e-label" required class="input-field uppercase" placeholder="Ex: Aide Sociale"></div>
+                                <div><label class="label-style">Montant</label><input type="number" id="e-val" required class="input-field" placeholder="FCFA"></div>
+                            </div>
+                            <button type="submit" class="btn-primary w-full justify-center"><i data-lucide="plus" class="w-4 h-4"></i>Enregistrer</button>
+                        </form>
+                        <p class="text-[9.5px] font-bold mt-3 leading-relaxed" style="color:var(--muted)">Ces motifs alimentent le menu « Encaisser » et le point de cotisation.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ DÉPENSES ============ -->
+            <div id="p-depenses" class="page hidden">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-7">
+                    <div>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--out)"></span>Dépenses</h3>
+                        <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Sorties de caisse</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="exportCSV('table-depenses', 'Depenses.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
+                        <button onclick="toggleModal('modal-depense', true)" class="btn-danger"><i data-lucide="plus" class="w-4 h-4"></i>Sortie</button>
+                    </div>
+                </div>
+                <div class="app-card overflow-hidden">
+                    <table class="app-table">
+                        <thead><tr><th>Motif</th><th>Bénéficiaire</th><th class="text-right !pr-8">Montant (FCFA)</th></tr></thead>
+                        <tbody id="table-depenses"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ============ RAPPORTS ============ -->
+            <div id="p-rapports" class="page hidden">
+                <div class="mb-7">
+                    <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--primary)"></span>Rapports</h3>
+                    <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Bilans de gestion en PDF, synthèse par l'IA</p>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 max-w-[1150px]">
+                    <div class="app-card p-8 flex flex-col gap-5">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <h4 class="text-[15px] font-black uppercase tracking-tight">Rapport à ce jour</h4>
+                                <p class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color:var(--muted)">Situation complète</p>
+                            </div>
+                            <div class="icon-tile it-teal" style="width:46px;height:46px"><i data-lucide="file-text" class="w-5 h-5"></i></div>
+                        </div>
+                        <p class="text-[12px] font-semibold leading-relaxed" style="color:var(--muted)">Membres à jour et non à jour selon la mensualité du mois <b>et</b> chaque cotisation exceptionnelle, bilan financier de toutes les cotisations depuis la création, le tout dans un document officiel avec une synthèse rédigée par l'IA.</p>
+                        <button id="btn-rap-jour" onclick="genererRapport('jour')" class="btn-primary mt-auto"><i data-lucide="file-down" class="w-4 h-4"></i>Générer le PDF</button>
+                    </div>
+                    <div class="app-card p-8 flex flex-col gap-5">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <h4 class="text-[15px] font-black uppercase tracking-tight">Rapport sur période</h4>
+                                <p class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color:var(--muted)">Bilan financier choisi</p>
+                            </div>
+                            <div class="icon-tile it-blue" style="width:46px;height:46px"><i data-lucide="calendar-range" class="w-5 h-5"></i></div>
+                        </div>
+                        <p class="text-[12px] font-semibold leading-relaxed" style="color:var(--muted)">Cotisations mensuelles mois par mois, exceptionnelles par motif et dépenses de la période sélectionnée, avec synthèse de l'IA.</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="label-style">Début</label>
+                                <div class="flex gap-2">
+                                    <select id="r-m1" class="input-field !w-auto flex-1 rounded-xl"></select>
+                                    <input type="number" id="r-a1" class="input-field !w-[84px] rounded-xl">
+                                </div>
+                            </div>
+                            <div><label class="label-style">Fin</label>
+                                <div class="flex gap-2">
+                                    <select id="r-m2" class="input-field !w-auto flex-1 rounded-xl"></select>
+                                    <input type="number" id="r-a2" class="input-field !w-[84px] rounded-xl">
+                                </div>
+                            </div>
+                        </div>
+                        <button id="btn-rap-periode" onclick="genererRapport('periode')" class="btn-primary mt-auto"><i data-lucide="file-down" class="w-4 h-4"></i>Générer le PDF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============ PARAMÈTRES ============ -->
+            <div id="p-parametres" class="page hidden">
+                <div class="mb-7">
+                    <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--muted)"></span>Paramètres</h3>
+                    <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Configuration de l'association</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[720px]">
+                    <div class="app-card tile-hover p-10 flex flex-col items-center gap-5" onclick="openModalAssoc()">
+                        <div class="icon-tile it-blue" style="width:60px;height:60px;border-radius:20px"><i data-lucide="pen-line" class="w-7 h-7"></i></div>
+                        <h4 class="font-black text-xs uppercase tracking-wide">Modifier</h4>
+                        <p class="text-[11px] font-semibold text-center leading-relaxed" style="color:var(--muted)">Nom, contact et logo de l'association</p>
+                    </div>
+                    <div class="app-card tile-hover p-10 flex flex-col items-center gap-5" onclick="openModalMdp()">
+                        <div class="icon-tile it-rose" style="width:60px;height:60px;border-radius:20px"><i data-lucide="key-round" class="w-7 h-7"></i></div>
+                        <h4 class="font-black text-xs uppercase tracking-wide">Mot de passe</h4>
+                        <p class="text-[11px] font-semibold text-center leading-relaxed" style="color:var(--muted)">Mettre à jour votre mot de passe</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ============ MODAL PROFIL MEMBRE ============ -->
+    <div id="modal-profil" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-4xl p-8 flex flex-col max-h-[95vh]">
+            <div class="flex justify-between items-start mb-6 border-b pb-6 shrink-0" style="border-color:var(--row-border)">
+                <div class="flex items-center gap-5">
+                    <div id="prof-initiales" class="w-16 h-16 rounded-2xl grid place-items-center font-black text-xl tracking-tight" style="background:var(--soft-teal);color:var(--primary)">—</div>
+                    <div>
+                        <h3 id="prof-nom" class="text-xl font-black uppercase tracking-tight" style="color:var(--primary)">Chargement…</h3>
+                        <p id="prof-details" class="text-[10.5px] font-bold uppercase tracking-wider mt-1.5" style="color:var(--muted)"></p>
+                    </div>
+                </div>
+                <button onclick="toggleModal('modal-profil', false)" class="icon-btn"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto pr-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-6" style="background:var(--field);border:1px solid var(--field-border);border-radius:20px">
+                    <h4 class="text-[10px] font-black uppercase tracking-[.16em] mb-4 flex items-center gap-2" style="color:var(--in)"><i data-lucide="calendar-check" class="w-4 h-4"></i>Historique mensualités</h4>
+                    <div id="prof-list-mens" class="space-y-1"></div>
+                </div>
+                <div class="p-6" style="background:var(--field);border:1px solid var(--field-border);border-radius:20px">
+                    <h4 class="text-[10px] font-black uppercase tracking-[.16em] mb-4 flex items-center gap-2" style="color:var(--viol)"><i data-lucide="star" class="w-4 h-4"></i>Cotisations spéciales</h4>
+                    <div id="prof-list-exc" class="space-y-1"></div>
+                </div>
+            </div>
+            <div class="pt-5 shrink-0 mt-4 border-t" style="border-color:var(--row-border)">
+                <button onclick="toggleModal('modal-profil', false)" class="btn-cancel w-full">Fermer la fiche</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ MODAL RÉUNION ============ -->
+    <div id="modal-reunion" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-2xl p-8 flex flex-col max-h-[95vh]">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic" style="background:var(--soft-teal);color:var(--primary)"><i data-lucide="file-text" class="w-5 h-5"></i></div>
+                <div><h3 class="text-lg font-black uppercase tracking-tight">Enregistrer une réunion</h3><p class="text-[10px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--muted)">PV rédigé par l'IA</p></div>
+            </div>
+            <form id="form-reunion" class="space-y-5 overflow-y-auto pr-2 flex-1">
+                <div class="grid grid-cols-3 gap-4">
+                    <div><label class="label-style"><input type="hidden" id="reunion-id" name="id">Date</label><input type="date" name="date" required class="input-field rounded-xl"></div>
+                    <div><label class="label-style">Heure de début</label><input type="time" name="heure" class="input-field rounded-xl"></div>
+                    <div><label class="label-style">Heure de fin</label><input type="time" name="heureFin" class="input-field rounded-xl"></div>
+                </div>
+                <div>
+                    <label class="label-style">Lieu</label>
+                    <input type="text" name="lieu" class="input-field rounded-xl" placeholder="Ex: Siège de l'association">
+                </div>
+                <div>
+                    <label class="label-style">Ordre du jour (tel qu'il figurera dans le compte rendu)</label>
+                    <input type="text" name="objet" required class="input-field rounded-xl" placeholder="Ex: 1. Cotisations — 2. Sortie à Bouaké — 3. Divers">
+                </div>
+                <div>
+                    <label class="label-style">Membres présents (sélectionnez tous les participants)</label>
+                    <div id="reunion-membres-list" class="p-4 rounded-2xl max-h-40 overflow-y-auto space-y-1" style="background:var(--field);border:1px solid var(--field-border)">
+                        <p class="text-xs italic font-bold" style="color:var(--muted)">Chargement de la liste des membres…</p>
+                    </div>
+                    <label class="label-style mt-4">Personnes annexes / Invités</label>
+                    <input type="text" name="invites" class="input-field rounded-xl" placeholder="Ex: M. le Maire (séparer par des virgules)">
+                </div>
+                <div>
+                    <label class="label-style">Notes de la réunion (grandes idées)</label>
+                    <textarea id="reunion-notes" class="input-field h-40 resize-none" placeholder="Ex: Décision de refaire la peinture, Budget 500k validé, Présence de M. le Maire…"></textarea>
+                    <p class="text-[9.5px] mt-1.5 italic font-semibold" style="color:var(--muted)">L'IA transformera ces notes en un PV officiel et générera le PDF.</p>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="btn-primary flex-1 justify-center">Valider le PV</button>
+                    <button type="button" onclick="toggleModal('modal-reunion', false)" class="btn-cancel px-8">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ MODAL LECTURE PV ============ -->
+    <div id="modal-view-cr" class="modal-wrap hidden items-center justify-center z-[60]">
+        <div class="modal-card max-w-2xl p-9 flex flex-col max-h-[90vh]">
+            <div class="border-b pb-4 mb-6 shrink-0" style="border-color:var(--row-border)">
+                <h3 id="view-title" class="text-xl font-black uppercase tracking-tight" style="color:var(--primary)"></h3>
+                <p id="view-date" class="text-[9.5px] font-bold uppercase tracking-[.18em] mt-1" style="color:var(--muted)"></p>
+            </div>
+            <div id="view-body" class="overflow-y-auto pr-4 flex-1 text-sm leading-relaxed" style="color:var(--text)"></div>
+            <div class="pt-5 shrink-0 mt-4">
+                <button onclick="toggleModal('modal-view-cr', false)" class="btn-cancel w-full">Fermer la lecture</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ MODAL MEMBRE ============ -->
+    <div id="modal-membre" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-md p-8">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic it-blue"><i data-lucide="user-plus" class="w-5 h-5"></i></div>
+                <h3 class="text-lg font-black uppercase tracking-tight">Nouveau membre</h3>
+            </div>
+            <form id="form-membre" class="space-y-3">
+                <input type="text" name="nom" placeholder="Nom" required class="input-field uppercase">
+                <input type="text" name="prenom" placeholder="Prénom" required class="input-field">
+                <input type="text" name="contact" placeholder="Contact" required class="input-field">
+                <input type="text" name="ville" placeholder="Ville" class="input-field">
+                <select name="sexe" class="input-field"><option value="M">Masculin</option><option value="F">Féminin</option></select>
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" class="btn-primary flex-1 justify-center">Confirmer</button>
+                    <button type="button" onclick="toggleModal('modal-membre', false)" class="btn-cancel px-6">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ MODAL MENSUALITÉ ============ -->
+    <div id="modal-mensuel" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-sm p-8">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic it-teal"><i data-lucide="calendar-check" class="w-5 h-5"></i></div>
+                <h3 class="text-lg font-black uppercase tracking-tight">Mensualité</h3>
+            </div>
+            <form id="form-mensuel" class="space-y-4">
+                <select id="select-m-membres" name="idMembre" class="input-field"></select>
+                <div class="grid grid-cols-2 gap-2">
+                    <select name="mois" class="input-field"><option>Janvier</option><option>Février</option><option>Mars</option><option>Avril</option><option>Mai</option><option>Juin</option><option>Juillet</option><option>Août</option><option>Septembre</option><option>Octobre</option><option>Novembre</option><option>Décembre</option></select>
+                    <input type="number" name="annee" value="2026" class="input-field">
+                </div>
+                <div>
+                    <div class="flex items-center justify-between"><label class="label-style">Mensualité (FCFA)</label><span class="text-[8.5px] font-black uppercase tracking-widest" style="color:var(--muted)">Verrouillé</span></div>
+                    <input type="number" name="montant" id="m-montant" placeholder="Non configurée" class="input-field text-xl font-black" style="color:var(--in);opacity:.8;cursor:not-allowed" readonly>
+                    <p class="text-[9px] font-bold mt-1.5" style="color:var(--muted)">Montant unique défini dans la page Mensualités.</p>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" class="btn-primary flex-1 justify-center">Valider</button>
+                    <button type="button" onclick="toggleModal('modal-mensuel', false)" class="btn-cancel px-6">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ MODAL EXCEPTIONNELLE ============ -->
+    <div id="modal-excep" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-sm p-8">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic it-viol"><i data-lucide="star" class="w-5 h-5"></i></div>
+                <h3 class="text-lg font-black uppercase tracking-tight">Exceptionnelle</h3>
+            </div>
+            <form id="form-excep" class="space-y-4">
+                <select id="select-e-membres" name="idMembre" class="input-field"></select>
+                <select id="select-type-excep-payment" name="motif" class="input-field" onchange="document.getElementById('e-montant').value=this.value"></select>
+                <div>
+                    <div class="flex items-center justify-between"><label class="label-style">Montant (FCFA)</label><span class="text-[8.5px] font-black uppercase tracking-widest" style="color:var(--muted)">Verrouillé</span></div>
+                    <input type="number" name="montant" id="e-montant" placeholder="Choisissez l'événement" class="input-field text-xl font-black" style="color:var(--viol);opacity:.8;cursor:not-allowed" readonly>
+                    <p class="text-[9px] font-bold mt-1.5" style="color:var(--muted)">Montant fixé par l'événement choisi.</p>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" class="btn-primary flex-1 justify-center">Valider</button>
+                    <button type="button" onclick="toggleModal('modal-excep', false)" class="btn-cancel px-6">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ MODAL DÉPENSE ============ -->
+    <div id="modal-depense" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-sm p-8">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic it-rose"><i data-lucide="arrow-up-right" class="w-5 h-5"></i></div>
+                <h3 class="text-lg font-black uppercase tracking-tight">Sortie d'argent</h3>
+            </div>
+            <form id="form-depense" class="space-y-4">
+                <div><label class="label-style">Objet</label><input type="text" name="motif" required class="input-field uppercase"></div>
+                <div><label class="label-style">Bénéficiaire</label><input type="text" name="beneficiaire" class="input-field uppercase"></div>
+                <div><label class="label-style">Somme (FCFA)</label><input type="number" name="montant" required class="input-field text-xl font-black" style="color:var(--out)"></div>
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" class="btn-danger flex-1 justify-center">Valider</button>
+                    <button type="button" onclick="toggleModal('modal-depense', false)" class="btn-cancel px-6">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ MODAL MODIFIER L'ASSOCIATION ============ -->
+    <div id="modal-assoc" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-xl p-8">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic it-blue"><i data-lucide="pen-line" class="w-5 h-5"></i></div>
+                <div><h3 class="text-lg font-black uppercase tracking-tight">Modifier l'association</h3><p class="text-[9.5px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--muted)">Nom · Contact · Logo</p></div>
+            </div>
+            <form id="form-assoc" class="grid grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div><label class="label-style">Nom de l'association</label><input type="text" name="nom" required class="input-field uppercase"></div>
+                    <div><label class="label-style">Contact</label><input type="text" name="contact" class="input-field" placeholder="Téléphone"></div>
+                    <div><label class="label-style">Email (identifiant de connexion)</label><input type="email" name="email" class="input-field" disabled style="opacity:.6"></div>
+                </div>
+                <div class="p-5 rounded-[22px] flex flex-col items-center justify-center gap-4 border border-dashed" style="background:var(--field);border-color:var(--field-border)">
+                    <div id="logo-preview" class="w-[92px] h-[92px] rounded-2xl flex items-center justify-center border overflow-hidden" style="background:var(--card);border-color:var(--field-border)"><i data-lucide="image" class="w-7 h-7" style="color:var(--field-border)"></i></div>
+                    <div class="flex gap-2">
+                        <label class="chip chip-neutral cursor-pointer px-4 py-2">Changer le logo<input type="file" accept="image/*" class="hidden" onchange="handleLogo(this)"></label>
+                        <button type="button" onclick="supprimerLogo()" class="chip chip-neutral cursor-pointer px-4 py-2" id="btn-del-logo" style="display:none">Retirer</button>
+                    </div>
+                    <p class="text-[9px] font-bold text-center" style="color:var(--muted)">Affiché dans le tableau de bord<br>et sur les reçus · 2 Mo max</p>
+                    <input type="hidden" name="logo" id="logo-base64">
+                    <input type="hidden" id="logo-supprime" value="0">
+                </div>
+                <div class="col-span-2 flex gap-3 mt-2">
+                    <button type="submit" class="btn-primary flex-1 justify-center">Sauvegarder</button>
+                    <button type="button" onclick="toggleModal('modal-assoc', false)" class="btn-cancel px-8">Fermer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ MODAL MOT DE PASSE ============ -->
+    <div id="modal-mdp" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-sm p-8">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic it-rose"><i data-lucide="key-round" class="w-5 h-5"></i></div>
+                <div><h3 class="text-lg font-black uppercase tracking-tight">Mot de passe</h3><p class="text-[9.5px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--muted)">Mettre à jour la sécurité</p></div>
+            </div>
+            <form id="form-mdp" class="space-y-4">
+                <div><label class="label-style">Mot de passe actuel</label><input type="password" name="ancien" required class="input-field" autocomplete="current-password"></div>
+                <div class="grid grid-cols-1 gap-4">
+                    <div><label class="label-style">Nouveau mot de passe</label><input type="password" name="nouveau" required minlength="6" class="input-field" placeholder="6 caractères minimum" autocomplete="new-password"></div>
+                    <div><label class="label-style">Confirmer le nouveau</label><input type="password" name="confirm" required class="input-field" autocomplete="new-password"></div>
+                </div>
+                <p id="mdp-err" class="text-[11px] font-bold hidden" style="color:var(--out)"></p>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="btn-primary flex-1 justify-center">Mettre à jour</button>
+                    <button type="button" onclick="toggleModal('modal-mdp', false)" class="btn-cancel px-6">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ MODAL NOMINATION ============ -->
+    <div id="modal-nomination" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-sm p-8">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic it-blue"><i data-lucide="shield-check" class="w-5 h-5"></i></div>
+                <h3 class="text-lg font-black uppercase tracking-tight">Nomination</h3>
+            </div>
+            <form id="form-nomination" class="space-y-4">
+                <select id="select-membres" name="idMembre" class="input-field"></select>
+                <select id="select-postes" name="poste" class="input-field"></select>
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" class="btn-primary flex-1 justify-center">Confirmer</button>
+                    <button type="button" onclick="toggleModal('modal-nomination', false)" class="btn-cancel px-6">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    </div><!-- /#app-layout -->
+
+    <script src="gas-bridge.js"></script>
+    <script>
+        lucide.createIcons();
+
+        const MOIS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+        const RING_C = 326.7;
+        let listMembres = [];
+        let listReunions = [];
+        let confirmCallback = null;
+        let chartInstance = null;
+        window.assocData = { nom: "ASSOCIATION", tel: "", email: "", logo: "" };
+
+        // Petit helper : transforme google.script.run en Promise
+        const api = (fn, ...args) => new Promise((resolve, reject) => {
+            const runner = window.google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+            runner[fn](...args);
+        });
+        const fmt = n => Number(n || 0).toLocaleString('fr-FR');
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+        /* ============ AUTHENTIFICATION ============ */
+        function afficherAuth(mode) {
+            const scr = document.getElementById('auth-screen');
+            scr.classList.remove('hidden'); scr.classList.add('flex');
+            document.getElementById('app-layout').classList.add('hidden');
+            const su = mode === 'signup';
+            document.getElementById('form-login').classList.toggle('hidden', su);
+            document.getElementById('form-signup').classList.toggle('hidden', !su);
+            document.getElementById('tab-login').classList.toggle('active', !su);
+            document.getElementById('tab-signup').classList.toggle('active', su);
+            document.getElementById('login-err').classList.add('hidden');
+            document.getElementById('signup-err').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function errAuth(id, msg) { const p = document.getElementById(id); p.innerText = msg; p.classList.remove('hidden'); }
+
+        // Lecture d'image avec contrôle de taille (2 Mo) et compression (max 512px)
+        function lireImage(input, cb) {
+            const f = input.files && input.files[0];
+            if (!f) return;
+            if (f.size > 2 * 1024 * 1024) { showToast('Logo trop lourd : 2 Mo maximum', 'error'); input.value = ''; return; }
+            const r = new FileReader();
+            r.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const MAX = 512;
+                    let w = img.width, h = img.height;
+                    if (w > MAX || h > MAX) { const k = Math.min(MAX / w, MAX / h); w = Math.round(w * k); h = Math.round(h * k); }
+                    const c = document.createElement('canvas'); c.width = w; c.height = h;
+                    c.getContext('2d').drawImage(img, 0, 0, w, h);
+                    cb(c.toDataURL('image/png'));
+                };
+                img.src = e.target.result;
+            };
+            r.readAsDataURL(f);
+        }
+
+        function handleAuthLogo(i) {
+            lireImage(i, data => {
+                document.getElementById('auth-logo-data').value = data;
+                document.getElementById('auth-logo-preview').innerHTML = `<img src="${data}" class="w-full h-full object-cover">`;
+            });
+        }
+
+        document.getElementById('form-signup').onsubmit = (e) => {
+            e.preventDefault();
+            const f = e.target;
+            if (f.mdp.value !== f.mdp2.value) { errAuth('signup-err', 'Les deux mots de passe ne correspondent pas.'); return; }
+            const btn = f.querySelector('button[type="submit"]'); btn.disabled = true;
+            api('creerCompte', { nom: f.nom.value.trim(), contact: f.contact.value.trim(), email: f.email.value.trim(), mdp: f.mdp.value, logo: document.getElementById('auth-logo-data').value })
+                .then(r => {
+                    btn.disabled = false;
+                    if (r.status === 'error') { errAuth('signup-err', r.msg); return; }
+                    // Le compte est créé : retour à la page de connexion
+                    // (aucune connexion automatique, l'association se connecte elle-même)
+                    showToast(r.msg + ' Connectez-vous à présent.');
+                    const fl = document.getElementById('form-login');
+                    fl.reset();
+                    fl.email.value = f.email.value.trim();
+                    f.reset();
+                    document.getElementById('auth-logo-data').value = '';
+                    document.getElementById('auth-logo-preview').innerHTML = '<i data-lucide="image" class="w-6 h-6" style="color:var(--field-border)"></i>';
+                    afficherAuth('login');
+                    lucide.createIcons();
+                }).catch(err => { btn.disabled = false; errAuth('signup-err', String(err)); });
+        };
+
+        document.getElementById('form-login').onsubmit = (e) => {
+            e.preventDefault();
+            const f = e.target;
+            const btn = f.querySelector('button[type="submit"]'); btn.disabled = true;
+            api('connexion', f.email.value.trim(), f.mdp.value)
+                .then(r => {
+                    btn.disabled = false;
+                    if (r.status === 'error') { errAuth('login-err', r.msg); return; }
+                    localStorage.setItem('mutasso_token', r.token);
+                    showToast(r.msg);
+                    demarrerApp(r.infos);
+                }).catch(err => { btn.disabled = false; errAuth('login-err', String(err)); });
+        };
+
+        function seDeconnecter() {
+            localStorage.removeItem('mutasso_token');
+            location.reload();
+        }
+
+        /* ============ BRANDING ============ */
+        function appliquerBranding(infos) {
+            window.assocData = { nom: infos.nom, tel: infos.contact, email: infos.email, logo: infos.logo };
+            const mark = document.getElementById('brand-mark');
+            mark.innerHTML = infos.logo
+                ? `<img src="${infos.logo}" style="width:100%;height:100%;object-fit:cover">`
+                : `<i data-lucide="heart-handshake" class="w-5 h-5"></i>`;
+            const av = document.getElementById('side-av');
+            av.innerHTML = infos.logo
+                ? `<img src="${infos.logo}" style="width:100%;height:100%;object-fit:cover">`
+                : `<i data-lucide="building-2" class="w-4 h-4"></i>`;
+            document.getElementById('brand-nom').innerText = infos.nom || 'ASSOCIATION';
+            document.getElementById('brand-nom').title = infos.nom || 'ASSOCIATION';
+            document.getElementById('brand-sub').innerText = 'MUTASSO · Gestion associative';
+            document.getElementById('side-assoc').innerText = infos.nom || 'Association';
+            document.getElementById('side-email').innerText = infos.email || 'Espace bureau';
+        }
+
+        function demarrerApp(infos) {
+            appliquerBranding(infos || {});
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('flex');
+            document.getElementById('app-layout').classList.remove('hidden');
+            loadExcepSearchMotifs();
+            showPage('dashboard');
+            lucide.createIcons();
+        }
+
+        /* ============ UI DE BASE ============ */
+        function toggleDarkMode() {
+            const h = document.documentElement, i = document.getElementById('theme-icon');
+            if (h.classList.contains('dark')) { h.classList.replace('dark','light'); localStorage.setItem('theme','light'); i.setAttribute('data-lucide','moon'); }
+            else { h.classList.replace('light','dark'); localStorage.setItem('theme','dark'); i.setAttribute('data-lucide','sun'); }
+            lucide.createIcons();
+            if (!document.getElementById('p-dashboard').classList.contains('hidden')) loadChart();
+        }
+
+        function showToast(m, type='success') {
+            const c = document.getElementById('toast-container'), t = document.createElement('div');
+            t.className = `toast toast-${type}`;
+            t.innerHTML = `<i data-lucide="${type==='success'?'check-circle-2':(type==='error'?'alert-circle':'info')}" class="w-4 h-4"></i>${esc(m)}`;
+            c.appendChild(t); lucide.createIcons();
+            setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(14px)'; t.style.transition='.3s'; setTimeout(()=>t.remove(),300); }, 3000);
+        }
+
+        function toggleModal(id, s) { const m = document.getElementById(id); if (m) s ? m.classList.replace('hidden','flex') : m.classList.replace('flex','hidden'); }
+
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+            document.querySelectorAll('.side-item').forEach(m => m.classList.remove('active'));
+            const p = document.getElementById('p-'+id), menu = document.getElementById('m-'+id);
+            if (p) p.classList.remove('hidden'); if (menu) menu.classList.add('active');
+            document.getElementById('page-title').innerText = id.toUpperCase();
+            setTimeout(() => lucide.createIcons(), 100);
+
+            if (id === 'dashboard') loadDashboard();
+            else if (id === 'membres') loadMembres();
+            else if (id === 'reunions') loadReunions();
+            else if (id === 'point') { loadExcepSearchMotifs(); loadPointPaiement(); }
+            else if (id === 'bureau') { loadBureau(); loadPostes(); }
+            else if (id === 'mensuel') { loadMensuel(); loadMensualiteConfig(); }
+            else if (id === 'excep') { loadExcep(); loadExcepSearchMotifs(); loadExcepTypesList(); }
+            else if (id === 'depenses') loadDepenses();
+            else if (id === 'rapports') initRapports();
+        }
+
+        /* ============ DASHBOARD ============ */
+        function chartColors() {
+            const dark = document.documentElement.classList.contains('dark');
+            return { grid: dark ? 'rgba(255,255,255,.07)' : 'rgba(12,54,48,.08)', ticks: dark ? '#8fb0a8' : '#667c77' };
+        }
+
+        async function loadChart() {
+            try {
+                const data = await api('getChartData');
+                const ctx = document.getElementById('financeChart').getContext('2d');
+                if (chartInstance) chartInstance.destroy();
+                const c = chartColors();
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc'],
+                        datasets: [
+                            { label: 'Entrées (FCFA)', data: data.income, backgroundColor: '#0d9488', borderRadius: 6, maxBarThickness: 20 },
+                            { label: 'Sorties (FCFA)', data: data.expenses, backgroundColor: '#e11d48', borderRadius: 6, maxBarThickness: 20 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0c332d', padding: 12, cornerRadius: 10, titleFont: { weight: '800' }, callbacks: { label: ctx => ` ${ctx.dataset.label} : ${fmt(ctx.parsed.y)} FCFA` } } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: c.ticks, font: { size: 10, weight: '700' } } },
+                            y: { beginAtZero: true, grid: { color: c.grid }, border: { display: false }, ticks: { color: c.ticks, font: { size: 10 }, callback: v => v.toLocaleString('fr-FR') } }
+                        }
+                    }
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        function spark(id, data, color) {
+            const el = document.getElementById(id); if (!el) return;
+            const max = Math.max(...data, 1);
+            el.innerHTML = data.map(v => `<i style="height:${Math.max(12, Math.round((v/max)*100))}%;background:${color}"></i>`).join('');
+        }
+
+        function chip(id, cur, prev, suffix='') {
+            const el = document.getElementById(id); if (!el) return;
+            if (prev === null || prev === undefined || isNaN(prev)) { el.innerHTML = ''; return; }
+            const pct = prev > 0 ? ((cur - prev) / prev) * 100 : (cur > 0 ? 100 : 0);
+            const up = pct >= 0;
+            el.innerHTML = `<span class="chip ${up?'chip-up':'chip-down'}"><i data-lucide="${up?'trending-up':'trending-down'}" class="w-3 h-3"></i>${Math.abs(pct).toFixed(1)}%${suffix}</span>`;
+            lucide.createIcons();
+        }
+
+        function setRing(pct) {
+            document.getElementById('ring-pct').innerText = Math.round(pct) + '%';
+            document.getElementById('ring-arc').style.strokeDashoffset = RING_C * (1 - Math.min(100, pct) / 100);
+        }
+
+        async function loadDashboard() {
+            loadChart();
+            const now = new Date(), m = now.getMonth(), y = now.getFullYear();
+            try {
+                const [stats, chart, membres, etat] = await Promise.all([
+                    api('getDashboardStats'),
+                    api('getChartData'),
+                    api('getMembres'),
+                    api('getEtatPaiements', 'mensuel', MOIS[m], String(y))
+                ]);
+                listMembres = membres;
+
+                document.getElementById('stat-caisse').innerText = fmt(stats.caisse) + ' FCFA';
+                document.getElementById('stat-count').innerText = stats.totalMembres;
+
+                const inc = chart.income, exp = chart.expenses;
+                const inCur = inc[m], outCur = exp[m];
+                const inPrev = m > 0 ? inc[m-1] : null, outPrev = m > 0 ? exp[m-1] : null;
+                document.getElementById('stat-in').innerText = fmt(inCur);
+                document.getElementById('stat-out').innerText = fmt(outCur);
+                chip('chip-in', inCur, inPrev);
+                chip('chip-out', outCur, outPrev);
+                chip('chip-caisse', (inCur - outCur), (inPrev === null || outPrev === null) ? null : (inPrev - outPrev));
+                spark('spark-in', inc, 'var(--in)');
+                spark('spark-out', exp, 'var(--out)');
+
+                const h = membres.filter(x => x.sexe === 'M').length, f = membres.length - h;
+                document.getElementById('chip-hf').innerHTML = `<span class="chip chip-neutral"><i data-lucide="users" class="w-3 h-3"></i>${h} H · ${f} F</span>`;
+                const av = document.getElementById('stat-avatars');
+                av.innerHTML = membres.slice(-4).reverse().map(mm => `<span class="av-c" title="${esc(mm.nom)} ${esc(mm.prenom)}">${esc(mm.nom.charAt(0))}${esc(mm.prenom.charAt(0))}</span>`).join('')
+                    + (membres.length > 4 ? `<span class="av-c more">+${membres.length - 4}</span>` : '');
+
+                const paid = etat.filter(x => x.aPaye).length;
+                setRing(etat.length ? (paid / etat.length) * 100 : 0);
+                document.getElementById('ring-month').innerText = `${MOIS[m]} ${y}`;
+                document.getElementById('ring-sub').innerText = etat.length ? `${paid} / ${etat.length} membres à jour` : 'Aucun membre enregistré';
+                lucide.createIcons();
+            } catch (e) { console.error(e); }
+            loadRecent();
+        }
+
+        async function loadRecent() {
+            const box = document.getElementById('recent-ops');
+            try {
+                const [mens, exc, dep] = await Promise.all([api('getMensuels',''), api('getExceps',''), api('getDepenses')]);
+                const dt = d => { const p = String(d).split('/'); return p.length === 3 ? new Date(+p[2], +p[1]-1, +p[0]).getTime() : 0; };
+                const items = [
+                    ...mens.map(r => ({ t:'in', l:'Mensualité · ' + r.periode, s:r.nom, m:r.montant, d:r.date })),
+                    ...exc.map(r => ({ t:'exc', l:'Spéciale · ' + r.motif, s:r.nom, m:r.montant, d:r.date })),
+                    ...dep.map(r => ({ t:'out', l:'Sortie · ' + r.motif, s:(r.beneficiaire || 'Caisse'), m:r.montant, d:r.date }))
+                ].sort((a,b) => dt(b.d) - dt(a.d)).slice(0, 6);
+
+                const conf = {
+                    in:  { ic:'banknote',       col:'var(--in)',  bg:'rgba(5,150,105,.1)',  sign:'+' },
+                    exc: { ic:'star',           col:'var(--viol)',bg:'rgba(124,58,237,.1)', sign:'+' },
+                    out: { ic:'arrow-up-right', col:'var(--out)', bg:'rgba(225,29,72,.1)',   sign:'−' }
+                };
+                box.innerHTML = items.length ? items.map(i => {
+                    const c = conf[i.t];
+                    return `<div class="r-op">
+                        <div class="r-dot" style="background:${c.bg};color:${c.col}"><i data-lucide="${c.ic}" class="w-4 h-4"></i></div>
+                        <div class="flex-1 min-w-0"><p class="text-[12px] font-extrabold truncate">${esc(i.l)}</p><p class="t-sub">${esc(i.s)} · ${esc(i.d)}</p></div>
+                        <p class="text-[12.5px] font-black whitespace-nowrap" style="color:${c.col}">${c.sign}${fmt(i.m)}</p>
+                    </div>`;
+                }).join('') : '<p class="text-xs italic font-bold py-6 text-center" style="color:var(--muted)">Aucune opération.</p>';
+                lucide.createIcons();
+            } catch (e) { box.innerHTML = ''; console.error(e); }
+        }
+
+        function loadStats() {
+            api('getDashboardStats').then(s => {
+                const a = document.getElementById('stat-caisse'); if (a) a.innerText = fmt(s.caisse) + ' FCFA';
+                const c = document.getElementById('stat-count'); if (c) c.innerText = s.totalMembres;
+            }).catch(() => {});
+        }
+
+        /* ============ RAPPORTS DE GESTION (PDF + synthèse IA) ============ */
+        function initRapports() {
+            const auj = new Date();
+            const opts = MOIS.map(m => `<option>${m}</option>`).join('');
+            const m1 = document.getElementById('r-m1'), m2 = document.getElementById('r-m2');
+            if (m1.options.length === 0) {
+                m1.innerHTML = opts; m2.innerHTML = opts;
+                m1.selectedIndex = 0;
+                m2.selectedIndex = auj.getMonth();
+                document.getElementById('r-a1').value = auj.getFullYear();
+                document.getElementById('r-a2').value = auj.getFullYear();
+            }
+        }
+
+        async function genererRapport(type) {
+            const btn = document.getElementById(type === 'jour' ? 'btn-rap-jour' : 'btn-rap-periode');
+            const original = btn.innerHTML;
+            const setBtn = html => { btn.disabled = !!html; btn.innerHTML = html || original; if (html) { lucide.createIcons(); } };
+
+            try {
+                setBtn('<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Collecte des données…');
+                let d;
+                if (type === 'jour') d = await api('getRapportJour');
+                else {
+                    const m1 = document.getElementById('r-m1').selectedIndex + 1, a1 = +document.getElementById('r-a1').value;
+                    const m2 = document.getElementById('r-m2').selectedIndex + 1, a2 = +document.getElementById('r-a2').value;
+                    d = await api('getRapportPeriode', m1, a1, m2, a2);
+                    if (d.status === 'error') { showToast(d.msg, 'error'); setBtn(''); return; }
+                }
+                setBtn('<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Rédaction IA…');
+                const synthese = await api('genererRapportIA', d);
+                if (String(synthese).startsWith('Erreur')) { showToast("L'IA est surchargée, attendez 1 min.", 'error'); setBtn(''); return; }
+
+                setBtn('<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> PDF en cours…');
+                telechargerRapportPDF(d, synthese);
+                setBtn('');
+                showToast('Rapport PDF généré !');
+            } catch (e) {
+                console.error(e);
+                showToast('Erreur lors de la génération du rapport.', 'error');
+                setBtn('');
+            }
+        }
+
+        function telechargerRapportPDF(d, synthese) {
+            const F = n => Number(n || 0).toLocaleString('fr-FR');
+            const auj = new Date();
+            const dLongue = auj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            const dLongueMaj = dLongue.charAt(0).toUpperCase() + dLongue.slice(1);
+            const nomAssoc = (window.assocData.nom || 'ASSOCIATION').toUpperCase();
+            const contactAssoc = [window.assocData.tel, window.assocData.email].filter(Boolean).join(' • ');
+
+            // Lignes communes de tableaux (style officiel)
+            const td = 'border:1px solid #141414; padding:7px 10px; font-size:10.5px;';
+            const th = td + ' background:#efefef; font-weight:bold; text-transform:uppercase; font-size:9.5px; letter-spacing:.4px;';
+            const ligneFin = (lib, val, gras) => `<tr>
+                <td style="${td} ${gras ? 'font-weight:bold;' : ''}">${lib}</td>
+                <td style="${td} text-align:right; ${gras ? 'font-weight:bold;' : ''}">${val}</td>
+            </tr>`;
+
+            let sections = '';
+            if (d.type === 'jour') {
+                const taux = d.effectif ? Math.round(d.aJour.length / d.effectif * 100) : 0;
+                const evAbbr = d.events.map(e => e.label.split(/\s+/)[0].slice(0, 8).toUpperCase());
+                sections = `
+                    <p style="font-weight:bold; font-size:12px; margin:26px 0 4px;">I. SITUATION DES ADHÉRENTS — MENSUALITÉ ${esc(d.moisCourant).toUpperCase()} ${d.anneeCourante}</p>
+                    <p style="font-size:10.5px; margin:0 0 10px; font-style:italic;">${d.aJour.length} à jour sur ${d.effectif} (${taux} %) — mensualité de ${F(d.mensualiteMontant)} FCFA.</p>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead><tr>
+                            <th style="${th} width:30px;">N°</th>
+                            <th style="${th}">Nom et Prénoms</th>
+                            <th style="${th} width:62px;">Mensuel</th>
+                            ${d.events.map((e, i) => `<th style="${th} width:58px;" title="${esc(e.label)}">${evAbbr[i]}</th>`).join('')}
+                        </tr></thead>
+                        <tbody>
+                            ${d.membres.map((m, i) => `<tr>
+                                <td style="${td} text-align:center;">${i + 1}</td>
+                                <td style="${td} text-transform:uppercase;">${esc(m.nom)}</td>
+                                <td style="${td} text-align:center; font-weight:bold;">${d.aJour.includes(m.id) ? '✓' : '—'}</td>
+                                ${d.events.map(e => `<td style="${td} text-align:center;">${e.payeurs.includes(m.id) ? '✓' : '—'}</td>`).join('')}
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+
+                    <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">II. COTISATIONS EXCEPTIONNELLES</p>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead><tr><th style="${th}">Événement</th><th style="${th} width:110px; text-align:right;">Montant unitaire</th><th style="${th} width:130px;">Ayant cotisé</th><th style="${th} width:130px; text-align:right;">Encaissé</th></tr></thead>
+                        <tbody>
+                            ${d.events.map(e => `<tr>
+                                <td style="${td} text-transform:uppercase;">${esc(e.label)}</td>
+                                <td style="${td} text-align:right;">${F(e.montant)} FCFA</td>
+                                <td style="${td} text-align:center;">${e.nbPayeurs} / ${d.effectif}</td>
+                                <td style="${td} text-align:right;">${F(e.nbPayeurs * e.montant)} FCFA</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`;
+            } else {
+                const moisCles = Object.keys(d.parMois);
+                const motifCles = Object.keys(d.parMotif);
+                sections = `
+                    <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">I. COTISATIONS MENSUELLES DE LA PÉRIODE</p>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead><tr><th style="${th}">Mois</th><th style="${th} width:130px;">Paiements</th><th style="${th} width:150px; text-align:right;">Encaissé</th></tr></thead>
+                        <tbody>${moisCles.length ? moisCles.map(k => ligneFin(k, d.parMois[k].nb + ' — ' + F(d.parMois[k].total) + ' FCFA')).join('') : `<tr><td style="${td}" colspan="3" >Aucune mensualité sur la période.</td></tr>`}</tbody>
+                    </table>
+
+                    <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">II. COTISATIONS EXCEPTIONNELLES DE LA PÉRIODE</p>
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead><tr><th style="${th}">Motif</th><th style="${th} width:130px;">Cotisations</th><th style="${th} width:150px; text-align:right;">Encaissé</th></tr></thead>
+                        <tbody>${motifCles.length ? motifCles.map(k => ligneFin(esc(k), d.parMotif[k].nb + ' — ' + F(d.parMotif[k].total) + ' FCFA')).join('') : `<tr><td style="${td}" colspan="3">Aucune cotisation exceptionnelle sur la période.</td></tr>`}</tbody>
+                    </table>`;
+            }
+
+            const titreP1 = d.type === 'jour' ? 'RAPPORT DE GESTION' : 'RAPPORT DE GESTION';
+            const titreP2 = d.type === 'jour' ? 'À CE JOUR' : 'PÉRIODE';
+            const titreP3 = d.type === 'jour' ? dLongueMaj : d.debut + ' — ' + d.fin;
+            const Fi = d.finances;
+
+            const element = document.createElement('div');
+            element.style.cssText = "padding:0; font-family:'Times New Roman',Georgia,serif; color:#141414;";
+            element.innerHTML = `
+                <div style="padding:42px 52px 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:22px; padding-bottom:12px; border-bottom:3px double #141414;">
+                        <div style="display:flex; gap:13px; align-items:center; max-width:58%;">
+                            ${window.assocData.logo ? `<img src="${window.assocData.logo}" style="width:62px;height:62px;object-fit:contain;">` : ''}
+                            <div>
+                                <p style="margin:0; font-size:12.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.6px; line-height:1.4;">${nomAssoc}</p>
+                                ${contactAssoc ? `<p style="margin:4px 0 0; font-size:9px; color:#444;">${contactAssoc}</p>` : ''}
+                            </div>
+                        </div>
+                        <div style="text-align:right; flex-shrink:0;">
+                            <p style="margin:0; font-size:18px; font-weight:bold; letter-spacing:1.2px;">${titreP1}</p>
+                            <p style="margin:3px 0 0; font-size:11px; font-weight:bold; letter-spacing:.8px;">${titreP2}</p>
+                            <p style="margin:5px 0 0; font-size:10px; font-style:italic;">${titreP3}</p>
+                        </div>
+                    </div>
+
+                    <div style="white-space:pre-wrap; font-size:12px; line-height:1.6; text-align:justify; margin-top:16px;">${synthese}</div>
+
+                    ${sections}
+
+                    <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">${d.type === 'jour' ? 'III. BILAN FINANCIER DEPUIS LA CRÉATION' : 'III. BILAN DE LA PÉRIODE'}</p>
+                    <table style="width:100%; border-collapse:collapse;">
+                        ${ligneFin('Cotisations mensuelles (' + Fi.nbMens + ' paiements)', F(Fi.totMens) + ' FCFA')}
+                        ${ligneFin('Cotisations exceptionnelles (' + Fi.nbExc + ' cotisations)', F(Fi.totExc) + ' FCFA')}
+                        ${ligneFin('Total des entrées', F(Fi.totMens + Fi.totExc) + ' FCFA', true)}
+                        ${ligneFin('Dépenses (' + Fi.nbDep + ' opérations)', '− ' + F(Fi.totDep) + ' FCFA')}
+                        ${ligneFin('SOLDE', F(Fi.solde) + ' FCFA', true)}
+                    </table>
+
+                    <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:flex-end;">
+                        <p style="margin:0; font-size:9px; color:#555;">Document généré par MUTASSO — Effectif : ${d.effectif} membres.</p>
+                        <div style="text-align:center; width:250px;">
+                            <p style="margin:0; font-size:11px; font-style:italic;">Fait le ${auj.toLocaleDateString('fr-FR')}</p>
+                            <p style="margin:14px 0 34px; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:.5px;">Le Secrétariat Général</p>
+                            <div style="border-top:1px dashed #555; width:100%;"></div>
+                        </div>
+                    </div>
+                </div>`;
+
+            const opt = {
+                margin: [0.5, 0.5, 0.6, 0.5],
+                filename: `Rapport_MUTASSO_${auj.toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`,
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        /* ============ REÇU PDF ============ */
+        function generateReceipt(nom, motif, montant, date) {
+            document.getElementById('receipt-assoc-nom').innerText = window.assocData.nom || "ASSOCIATION";
+            document.getElementById('receipt-assoc-contact').innerText = `${window.assocData.tel || ''} ${window.assocData.email ? ' - ' + window.assocData.email : ''}`;
+            if (window.assocData.logo) { document.getElementById('receipt-logo').src = window.assocData.logo; document.getElementById('receipt-logo').classList.remove('hidden'); }
+            document.getElementById('receipt-date').innerText = "Le " + date;
+            document.getElementById('receipt-nom').innerText = nom;
+            document.getElementById('receipt-motif').innerText = motif;
+            document.getElementById('receipt-montant').innerText = parseInt(montant).toLocaleString('fr-FR') + " FCFA";
+            const element = document.getElementById('receipt-content');
+            element.parentElement.classList.remove('hidden');
+            const opt = { margin: 0.5, filename: `Recu_${nom.replace(/\s+/g, '_')}_${date.replace(/\//g, '')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a5', orientation: 'landscape' } };
+            html2pdf().set(opt).from(element).save().then(() => { element.parentElement.classList.add('hidden'); showToast("Reçu PDF généré !"); });
+        }
+
+        /* ============ EXPORT CSV ============ */
+        function exportCSV(tableId, filename) {
+            let csv = []; const rows = document.querySelectorAll(`#${tableId} tr`);
+            for (let i = 0; i < rows.length; i++) {
+                let row = [], cols = rows[i].querySelectorAll("td, th");
+                for (let j = 0; j < cols.length - 1; j++) row.push('"' + cols[j].innerText.replace(/"/g, '""') + '"');
+                csv.push(row.join(","));
+            }
+            const csvFile = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a"); link.href = URL.createObjectURL(csvFile); link.download = filename; link.click();
+            showToast("Données exportées !");
+        }
+
+        /* ============ PROFIL MEMBRE ============ */
+        function openProfile(id) {
+            toggleModal('modal-profil', true);
+            document.getElementById('prof-nom').innerText = "Chargement…";
+            document.getElementById('prof-details').innerText = "";
+            document.getElementById('prof-initiales').innerText = "";
+            document.getElementById('prof-list-mens').innerHTML = '<p class="text-xs italic font-bold" style="color:var(--muted)">Recherche…</p>';
+            document.getElementById('prof-list-exc').innerHTML = '<p class="text-xs italic font-bold" style="color:var(--muted)">Recherche…</p>';
+            api('getMembreProfile', id).then(res => {
+                if (!res) return;
+                document.getElementById('prof-nom').innerText = res.info.nom + " " + res.info.prenom;
+                document.getElementById('prof-details').innerText = `ID: ${res.info.id} • Contact: ${res.info.contact} • Ville: ${res.info.ville || '-'}`;
+                document.getElementById('prof-initiales').innerText = (res.info.nom.charAt(0) + res.info.prenom.charAt(0)).toUpperCase();
+                const lm = document.getElementById('prof-list-mens');
+                lm.innerHTML = res.mensuels.length > 0 ? res.mensuels.map(m => `<div class="flex justify-between items-center border-b pb-2.5 mb-2.5" style="border-color:var(--row-border)"><div class="flex flex-col"><span class="text-xs font-extrabold uppercase">${esc(m.mois)} ${esc(m.annee)}</span><span class="text-[9px] italic font-bold" style="color:var(--muted)">Payé le ${esc(m.datePaiement)}</span></div><span class="text-xs font-black whitespace-nowrap" style="color:var(--in)">${fmt(m.montant)} FCFA</span></div>`).join('') : '<p class="text-xs italic font-bold" style="color:var(--muted)">Aucun paiement mensuel.</p>';
+                const le = document.getElementById('prof-list-exc');
+                le.innerHTML = res.exceps.length > 0 ? res.exceps.map(e => `<div class="flex justify-between items-center border-b pb-2.5 mb-2.5" style="border-color:var(--row-border)"><div class="flex flex-col min-w-0"><span class="text-[10.5px] font-extrabold uppercase truncate">${esc(e.motif)}</span><span class="text-[9px] italic font-bold" style="color:var(--muted)">Payé le ${esc(e.datePaiement)}</span></div><span class="text-xs font-black whitespace-nowrap" style="color:var(--viol)">${fmt(e.montant)} FCFA</span></div>`).join('') : '<p class="text-xs italic font-bold" style="color:var(--muted)">Aucune cotisation spéciale.</p>';
+            }).catch(console.error);
+        }
+
+        /* ============ POINT COTISATION ============ */
+        function togglePointFilters() {
+            const type = document.getElementById('point-type').value;
+            if (type === 'mensuel') { document.getElementById('filter-point-mensuel').classList.replace('hidden', 'flex'); document.getElementById('filter-point-excep').classList.replace('block', 'hidden'); }
+            else { document.getElementById('filter-point-mensuel').classList.replace('flex', 'hidden'); document.getElementById('filter-point-excep').classList.replace('hidden', 'block'); }
+        }
+
+        function loadPointPaiement() {
+            const type = document.getElementById('point-type').value; let p1, p2;
+            if (type === 'mensuel') { p1 = document.getElementById('point-mois').value; p2 = document.getElementById('point-annee').value; }
+            else { p1 = document.getElementById('point-motif').value; if (!p1) { showToast("Veuillez choisir un motif", "error"); return; } p2 = null; }
+            document.getElementById('table-point').innerHTML = emptyRow(2, 'Analyse en cours…');
+            api('getEtatPaiements', type, p1, p2).then(d => {
+                document.getElementById('table-point').innerHTML = d.length ? d.map(x => `<tr>
+                    <td><div class="flex items-center gap-3"><div class="avatar-sm">${esc(x.nom.charAt(0))}${esc(x.prenom.charAt(0))}</div><span class="t-name !text-[13px]">${esc(x.nom)} ${esc(x.prenom)}</span></div></td>
+                    <td class="text-right !pr-8"><span class="pill ${x.aPaye ? 'pill-ok' : 'pill-ko'}"><i data-lucide="${x.aPaye ? 'check-circle-2' : 'x-circle'}" class="w-3.5 h-3.5"></i>${x.aPaye ? 'À jour' : 'Impayé'}</span></td>
+                </tr>`).join('') : emptyRow(2, 'Aucun membre');
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        /* ============ TABLES ============ */
+        function emptyRow(cols, msg) { return `<tr><td colspan="${cols}" class="empty-cell"><i data-lucide="inbox" class="w-5 h-5"></i>${esc(msg)}</td></tr>`; }
+
+        function loadMembres() {
+            api('getMembres').then(d => {
+                listMembres = d;
+                document.getElementById('table-membres').innerHTML = d.length ? d.map(m => `<tr class="cursor-pointer" onclick="openProfile('${esc(m.id)}')">
+                    <td><div class="flex items-center gap-3.5"><div class="avatar-sm">${esc(m.nom.charAt(0))}${esc(m.prenom.charAt(0))}</div><div><p class="t-name">${esc(m.nom)} ${esc(m.prenom)}</p><p class="t-sub">${esc(m.id)} · ${esc(m.ville || '—')}</p></div></div></td>
+                    <td><span class="date-pill"><i data-lucide="phone" class="w-3 h-3"></i>${esc(m.contact)}</span></td>
+                    <td><span class="pill ${m.sexe === 'F' ? 'pill-ok' : 'periode-pill'}">${m.sexe === 'F' ? 'Féminin' : 'Masculin'}</span></td>
+                    <td class="text-right !pr-8"><span class="icon-btn"><i data-lucide="chevron-right" class="w-4 h-4"></i></span></td>
+                </tr>`).join('') : emptyRow(4, 'Aucun membre enregistré');
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        function loadMensuel() {
+            const m = document.getElementById('search-m-mois').value, a = document.getElementById('search-m-annee').value;
+            api('getMensuels', m, a).then(d => {
+                document.getElementById('table-mensuel').innerHTML = d.length ? d.map(r => `<tr>
+                    <td class="t-name">${esc(r.nom)}</td>
+                    <td><span class="pill periode-pill"><i data-lucide="calendar" class="w-3 h-3"></i>${esc(r.periode)}</span></td>
+                    <td class="td-amount td-in">${fmt(r.montant)} F</td>
+                    <td class="text-right !pr-8"><button onclick="generateReceipt('${esc(r.nom)}', 'Mensualité: ${esc(r.periode)}', ${r.montant}, '${esc(r.date)}')" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button></td>
+                </tr>`).join('') : emptyRow(4, 'Aucun paiement trouvé');
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        function loadExcepSearchMotifs() {
+            api('getTypesExcep').then(t => {
+                const opts = t.map(x => `<option value="${esc(x.label)}">${esc(x.label)}</option>`).join('');
+                document.getElementById('search-e-motif').innerHTML = `<option value="">Toutes</option>` + opts;
+                document.getElementById('point-motif').innerHTML = `<option value="">-- Sélectionner --</option>` + opts;
+            }).catch(console.error);
+        }
+
+        function loadExcep() {
+            const m = document.getElementById('search-e-motif').value;
+            api('getExceps', m).then(d => {
+                document.getElementById('table-excep').innerHTML = d.length ? d.map(r => `<tr>
+                    <td class="t-name">${esc(r.nom)}</td>
+                    <td><span class="pill motif-pill"><i data-lucide="star" class="w-3 h-3"></i>${esc(r.motif)}</span></td>
+                    <td class="td-amount td-viol">${fmt(r.montant)} F</td>
+                    <td class="text-right !pr-8"><button onclick="generateReceipt('${esc(r.nom)}', 'Spéciale: ${esc(r.motif)}', ${r.montant}, '${esc(r.date)}')" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button></td>
+                </tr>`).join('') : emptyRow(4, 'Aucune cotisation trouvée');
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        function loadDepenses() {
+            api('getDepenses').then(d => {
+                document.getElementById('table-depenses').innerHTML = d.length ? d.map(r => `<tr>
+                    <td><p class="t-name">${esc(r.motif)}</p><p class="t-sub">${esc(r.date || '')}</p></td>
+                    <td><span class="date-pill"><i data-lucide="user" class="w-3 h-3"></i>${esc(r.beneficiaire || '—')}</span></td>
+                    <td class="td-amount td-out !pr-8">−${fmt(r.montant)} FCFA</td>
+                </tr>`).join('') : emptyRow(3, 'Aucune dépense enregistrée');
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        function loadBureau() {
+            api('getBureau').then(d => {
+                document.getElementById('table-bureau').innerHTML = d.length ? d.map(b => `<tr>
+                    <td><div class="flex items-center gap-3.5"><div class="avatar-sm">${esc(String(b.nom).charAt(0))}</div><span class="t-name">${esc(b.nom)}</span></div></td>
+                    <td class="text-right !pr-8"><span class="pill periode-pill"><i data-lucide="shield-check" class="w-3 h-3"></i>${esc(b.poste)}</span></td>
+                </tr>`).join('') : emptyRow(2, 'Aucun membre nommé');
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        /* ============ POSTES DU BUREAU (définis par l'association) ============ */
+        function loadPostes() {
+            api('getPostes').then(t => {
+                document.getElementById('list-postes').innerHTML = t.length ? t.map(x => `<div class="flex items-center gap-3 p-3 rounded-2xl" style="background:var(--field);border:1px solid var(--field-border)">
+                    <div class="icon-tile it-blue" style="width:34px;height:34px;border-radius:11px"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i></div>
+                    <span class="flex-1 font-extrabold text-[11.5px] uppercase tracking-wide truncate" title="${esc(x.label)}">${esc(x.label)}</span>
+                    <button onclick="editP(${x.id},'${esc(x.label)}')" class="icon-btn" title="Renommer"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+                    <button onclick="askConfirm('Supprimer le poste « ${esc(x.label)} » ?', () => delP(${x.id}))" class="icon-btn red" title="Supprimer"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                </div>`).join('') : '<p class="text-[10.5px] italic font-bold text-center py-4 leading-relaxed" style="color:var(--muted)">Aucun poste pour l\'instant.<br>Ajoutez la composition de votre bureau ci-dessous.</p>';
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        document.getElementById('form-poste').onsubmit = (e) => {
+            e.preventDefault();
+            api('enregistrerPoste', { id: document.getElementById('edit-p-id').value, label: document.getElementById('p-label').value })
+                .then(r => {
+                    showToast(r.msg);
+                    document.getElementById('edit-p-id').value = '';
+                    document.getElementById('p-label').value = '';
+                    setBtnPoste(false);
+                    loadPostes(); loadBureau();
+                }).catch(console.error);
+        };
+
+        function setBtnPoste(editMode) {
+            document.getElementById('btn-poste').innerHTML = `<i data-lucide="${editMode ? 'check' : 'plus'}" class="w-4 h-4"></i>`;
+            lucide.createIcons();
+        }
+
+        function editP(i, l) {
+            document.getElementById('edit-p-id').value = i;
+            document.getElementById('p-label').value = l;
+            document.getElementById('p-label').focus();
+            setBtnPoste(true);
+        }
+
+        function delP(i) {
+            api('supprimerPoste', i).then(r => { showToast(r.msg, 'error'); loadPostes(); }).catch(console.error);
+        }
+
+        function loadReunions() {
+            api('getReunions').then(d => {
+                listReunions = d;
+                document.getElementById('table-reunions').innerHTML = d.length ? d.map(r => `<tr>
+                    <td><span class="date-pill"><i data-lucide="calendar" class="w-3 h-3"></i>${esc(r.date)}</span></td>
+                    <td><p class="t-name" style="color:var(--primary)">${esc(r.objet)}</p></td>
+                    <td class="text-right !pr-8"><div class="flex justify-end gap-1">
+                        <a href="${esc(r.fileUrl)}" target="_blank" class="icon-btn" title="Ouvrir le PV"><i data-lucide="eye" class="w-4 h-4"></i></a>
+                        <button onclick="preRemplirReunion('${esc(r.id)}')" class="icon-btn amber" title="Modifier"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                        <button onclick="askConfirm('Supprimer ce PV ?', () => supprimerReunion('${esc(r.id)}'))" class="icon-btn red" title="Supprimer"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div></td>
+                </tr>`).join('') : emptyRow(3, 'Aucune réunion archivée');
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        function openModalReunion() {
+            document.getElementById('form-reunion').reset();
+            if (document.getElementById('reunion-id')) document.getElementById('reunion-id').value = "";
+            toggleModal('modal-reunion', true);
+            api('getMembres').then(membres => {
+                if (membres.length === 0) {
+                    document.getElementById('reunion-membres-list').innerHTML = '<p class="text-xs italic font-bold" style="color:var(--muted)">Aucun membre enregistré.</p>';
+                    return;
+                }
+                document.getElementById('reunion-membres-list').innerHTML = membres.map(m => `
+                    <label class="flex items-center gap-3 cursor-pointer p-2 rounded-xl transition" style="background:transparent">
+                        <input type="checkbox" name="membres_presents" value="${esc(m.nom)} ${esc(m.prenom)}" class="custom-checkbox">
+                        <span class="text-[11px] font-extrabold uppercase">${esc(m.nom)} ${esc(m.prenom)}</span>
+                    </label>`).join('');
+            }).catch(console.error);
+        }
+
+        /* ============ PARAMÈTRES ============ */
+        function openModalAssoc() {
+            api('infosCompte').then(info => {
+                if (!info) return;
+                const f = document.getElementById('form-assoc');
+                f.nom.value = info.nom || ''; f.contact.value = info.contact || ''; f.email.value = info.email || '';
+                document.getElementById('logo-base64').value = '';
+                document.getElementById('logo-supprime').value = '0';
+                document.getElementById('btn-del-logo').style.display = info.logo ? '' : 'none';
+                document.getElementById('logo-preview').innerHTML = info.logo
+                    ? `<img src="${info.logo}" class="w-full h-full object-cover">`
+                    : `<i data-lucide="image" class="w-7 h-7" style="color:var(--field-border)"></i>`;
+                toggleModal('modal-assoc', true);
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        function supprimerLogo() {
+            document.getElementById('logo-base64').value = '';
+            document.getElementById('logo-supprime').value = '1';
+            document.getElementById('btn-del-logo').style.display = 'none';
+            document.getElementById('logo-preview').innerHTML = `<i data-lucide="image" class="w-7 h-7" style="color:var(--field-border)"></i>`;
+            lucide.createIcons();
+        }
+
+        function openModalMdp() {
+            const f = document.getElementById('form-mdp');
+            f.reset();
+            document.getElementById('mdp-err').classList.add('hidden');
+            toggleModal('modal-mdp', true);
+        }
+
+        document.getElementById('form-mdp').onsubmit = (e) => {
+            e.preventDefault();
+            const f = e.target;
+            if (f.nouveau.value !== f.confirm.value) { errAuth('mdp-err', 'Les deux mots de passe ne correspondent pas.'); return; }
+            api('majMotDePasse', f.ancien.value, f.nouveau.value).then(r => {
+                if (r.status === 'error') { errAuth('mdp-err', r.msg); return; }
+                localStorage.setItem('mutasso_token', r.token);
+                showToast(r.msg);
+                toggleModal('modal-mdp', false);
+            }).catch(err => errAuth('mdp-err', String(err)));
+        };
+
+        function loadMensualiteConfig() {
+            api('getMensualiteConfig').then(cfg => {
+                document.getElementById('mensualite-montant').innerText = cfg && cfg.montant ? fmt(cfg.montant) + ' FCFA' : 'Non définie';
+            }).catch(console.error);
+        }
+
+        function loadExcepTypesList() {
+            api('getTypesExcep').then(t => {
+                document.getElementById('list-excep-types').innerHTML = t.length ? t.map(x => `<div class="flex items-center gap-3 p-3 rounded-2xl" style="background:var(--field);border:1px solid var(--field-border)">
+                    <div class="icon-tile it-viol" style="width:34px;height:34px;border-radius:11px"><i data-lucide="star" class="w-3.5 h-3.5"></i></div>
+                    <div class="flex-1 min-w-0"><p class="font-extrabold text-[11.5px] uppercase truncate" title="${esc(x.label)}">${esc(x.label)}</p><p class="font-extrabold text-[10.5px]" style="color:var(--viol)">${fmt(x.montant)} FCFA</p></div>
+                    <button onclick="editE(${x.id},'${esc(x.label)}',${x.montant})" class="icon-btn" title="Modifier"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+                    <button onclick="askConfirm('Supprimer « ${esc(x.label)} » ?', ()=>delE(${x.id}))" class="icon-btn red" title="Supprimer"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                </div>`).join('') : '<p class="text-[10.5px] italic font-bold text-center py-4 leading-relaxed" style="color:var(--muted)">Aucun motif pour l\'instant.<br>Ajoutez vos cotisations spéciales ci-dessous.</p>';
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        /* ============ SUBMIT : RÉUNION (IA + PDF) ============ */
+        document.getElementById('form-reunion').onsubmit = (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            const notes = document.getElementById('reunion-notes').value;
+            const reID = document.getElementById('reunion-id')?.value || "";
+
+            if (!notes || notes.trim() === "") { showToast("Saisissez des notes", "error"); return; }
+
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Rédaction IA…`;
+            lucide.createIcons();
+
+            const objet = e.target.objet.value;
+            const date = e.target.date.value;
+            const heure = e.target.heure.value;
+            const heureFin = e.target.heureFin.value;
+            const lieu = e.target.lieu.value.trim();
+            const invites = e.target.invites.value;
+            const presentsArray = Array.from(document.querySelectorAll('input[name="membres_presents"]:checked')).map(cb => cb.value);
+
+            // Mise en forme des données d'en-tête (style administratif)
+            const heureFR = h => h ? h.replace(':', 'h').replace(/^0/, '') : '—';
+            const plageHeure = heure && heureFin ? `${heureFR(heure)} – ${heureFR(heureFin)}` : (heure ? heureFR(heure) : (heureFin ? `Fin : ${heureFR(heureFin)}` : '—'));
+            const formuleLevee = heureFin ? `La séance a été levée à ${heureFR(heureFin)}.` : 'La séance a ensuite été levée.';
+            const dParts = date.split('-');
+            const dObj = dParts.length === 3 ? new Date(+dParts[0], +dParts[1] - 1, +dParts[2]) : new Date(date);
+            const dLongue = dObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            const dLongueMaj = dLongue.charAt(0).toUpperCase() + dLongue.slice(1);
+            const dCourte = dObj.toLocaleDateString('fr-FR');
+
+            Promise.all([
+                api('genererPV_IA', notes, objet, date),
+                api('getBureau').catch(() => [])
+            ]).then(([texteIA, bureau]) => {
+                if (String(texteIA).startsWith("Erreur")) {
+                    showToast("L'IA est surchargée, attendez 1 min.", "error");
+                    btn.disabled = false; btn.innerHTML = originalText; lucide.createIcons();
+                    return;
+                }
+
+                btn.innerHTML = `<i data-lucide="loader" class="w-3 h-3 animate-spin"></i> PDF en cours…`;
+                lucide.createIcons();
+
+                // Fonction de chaque présent (poste connu via le bureau)
+                const posteDe = nom => { const b = bureau.find(x => String(x.nom).toUpperCase() === String(nom).toUpperCase()); return b ? b.poste : ""; };
+                const presidence = bureau.find(b => /PRESID/i.test(b.poste)) || bureau[0];
+                const lignePresidence = presidence ? `${presidence.nom}, ${presidence.poste} de l'association` : "";
+                const contactAssoc = [window.assocData.tel, window.assocData.email].filter(Boolean).join(' • ');
+                const logoAssoc = window.assocData.logo;
+                const nomAssoc = (window.assocData.nom || 'ASSOCIATION').toUpperCase();
+
+                const ligneMeta = (label, val) => val ? `<tr>
+                    <td style="width:128px; vertical-align:top; font-weight:bold; font-size:10.5px; text-transform:uppercase; padding:3px 8px 3px 0; white-space:nowrap;">${label} :</td>
+                    <td style="vertical-align:top; font-size:11.5px; padding:3px 0;">${val}</td>
+                </tr>` : '';
+
+                const element = document.createElement('div');
+                element.style.cssText = "padding:0; font-family:'Times New Roman',Georgia,serif; color:#141414;";
+                element.innerHTML = `
+                    <!-- PAGE 1 : COMPTE RENDU -->
+                    <div style="padding:42px 52px 20px;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:22px; padding-bottom:12px; border-bottom:3px double #141414;">
+                            <div style="display:flex; gap:13px; align-items:center; max-width:60%;">
+                                ${logoAssoc ? `<img src="${logoAssoc}" style="width:62px; height:62px; object-fit:contain;">` : ''}
+                                <div>
+                                    <p style="margin:0; font-size:12.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.6px; line-height:1.4;">${nomAssoc}</p>
+                                    ${contactAssoc ? `<p style="margin:4px 0 0; font-size:9px; color:#444;">${contactAssoc}</p>` : ''}
+                                </div>
+                            </div>
+                            <div style="text-align:right; flex-shrink:0;">
+                                <p style="margin:0; font-size:19px; font-weight:bold; letter-spacing:1.5px;">COMPTE RENDU</p>
+                                <p style="margin:3px 0 0; font-size:11px; font-weight:bold; letter-spacing:.8px;">DE RÉUNION</p>
+                                <p style="margin:5px 0 0; font-size:10px; font-style:italic;">${dLongueMaj}</p>
+                            </div>
+                        </div>
+
+                        <table style="width:100%; border-collapse:collapse; margin:14px 0 4px;">
+                            ${ligneMeta('Date', dLongueMaj)}
+                            ${ligneMeta('Lieu', lieu || "Siège de l'association")}
+                            ${ligneMeta('Heure', plageHeure)}
+                            ${ligneMeta('Présidence', lignePresidence)}
+                            ${ligneMeta('Participants', 'Les membres présents, conformément à la liste de présence annexée.')}
+                        </table>
+
+                        <!-- Ordre du jour saisi par le secrétaire -->
+                        <div style="margin:14px 0 4px;">
+                            <p style="margin:0 0 5px; font-size:10.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.5px;">Ordre du jour :</p>
+                            <div style="font-size:11.5px; line-height:1.55; white-space:pre-wrap;">${esc(objet)}</div>
+                        </div>
+
+                        <div style="white-space:pre-wrap; font-size:12px; line-height:1.6; text-align:justify; margin-top:12px;">${texteIA}
+
+${formuleLevee}</div>
+
+                        <div style="margin-top:30px; display:flex; justify-content:flex-end;">
+                            <div style="text-align:center; width:250px;">
+                                <p style="margin:0; font-size:11px; font-style:italic;">Fait à ${lieu || 'siège de l\'association'}, le ${dCourte}</p>
+                                <p style="margin:14px 0 34px; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:.5px;">Le Secrétariat Général</p>
+                                <div style="border-top:1px dashed #555; width:100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PAGE 2 : FEUILLE DE PRÉSENCE -->
+                    <div style="page-break-before:always; padding:42px 52px; font-family:'Times New Roman',Georgia,serif; color:#141414;">
+                        <div style="text-align:center; border-bottom:2px solid #141414; padding-bottom:12px; margin-bottom:22px;">
+                            <p style="margin:0; font-size:16px; font-weight:bold; letter-spacing:2px; text-transform:uppercase;">Feuille de présence</p>
+                            <p style="margin:6px 0 0; font-size:11px; font-style:italic;">Réunion du ${dLongueMaj} — ${esc(objet)}</p>
+                        </div>
+
+                        <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+                            <thead>
+                                <tr style="background:#efefef;">
+                                    <th style="border:1px solid #141414; padding:8px 6px; width:38px; font-size:10px;">N°</th>
+                                    <th style="border:1px solid #141414; padding:8px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.5px;">Nom et Prénoms</th>
+                                    <th style="border:1px solid #141414; padding:8px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.5px;">Fonction</th>
+                                    <th style="border:1px solid #141414; padding:8px 10px; width:150px; font-size:10px; text-transform:uppercase; letter-spacing:.5px;">Émargement</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${presentsArray.length ? presentsArray.map((p, i) => `<tr>
+                                    <td style="border:1px solid #141414; padding:12px 6px; text-align:center;">${i + 1}</td>
+                                    <td style="border:1px solid #141414; padding:12px 10px; text-transform:uppercase;">${esc(p)}</td>
+                                    <td style="border:1px solid #141414; padding:12px 10px;">${esc(posteDe(p))}</td>
+                                    <td style="border:1px solid #141414;"></td>
+                                </tr>`).join('') : `<tr><td colspan="4" style="border:1px solid #141414; padding:14px; text-align:center; font-style:italic;">Aucun membre coché</td></tr>`}
+                            </tbody>
+                        </table>
+
+                        ${invites ? `
+                        <div style="margin-top:26px;">
+                            <p style="margin:0 0 8px; font-size:10.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.5px;">Personnes invitées / annexes :</p>
+                            <p style="margin:0; font-size:11.5px; background:#f6f6f6; border-left:3px solid #141414; padding:10px 14px;">${esc(invites)}</p>
+                        </div>` : ''}
+
+                        <div style="margin-top:40px; display:flex; justify-content:flex-end;">
+                            <div style="text-align:center; width:250px;">
+                                <p style="margin:0 0 34px; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:.5px;">Le Secrétariat Général</p>
+                                <div style="border-top:1px dashed #555; width:100%;"></div>
+                            </div>
+                        </div>
+                    </div>`;
+
+                const opt = {
+                    margin: [0.5, 0.5, 0.6, 0.5],
+                    filename: `CR_${objet.replace(/\s+/g, '_')}.pdf`,
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+                };
+
+                html2pdf().set(opt).from(element).outputPdf('datauristring').then(pdfBase64 => {
+                    api('uploadFileToDrive', pdfBase64, `CR_${objet.replace(/\s+/g, '_')}.pdf`).then(fileUrl => {
+                        if (!String(fileUrl).startsWith("Erreur")) { window.open(fileUrl, '_blank'); }
+                        const d = { id: reID, date: date, objet: objet, presents: presentsArray.join(' • '), invites: invites, fileUrl: fileUrl, lieu: lieu, heure: heure, heureFin: heureFin };
+                        api('enregistrerReunion', d).then(r => {
+                            showToast(reID ? "Compte rendu mis à jour !" : "Compte rendu enregistré !");
+                            toggleModal('modal-reunion', false);
+                            e.target.reset();
+                            if (document.getElementById('reunion-id')) document.getElementById('reunion-id').value = "";
+                            btn.disabled = false;
+                            btn.innerHTML = originalText;
+                            lucide.createIcons();
+                            loadReunions();
+                        }).catch(console.error);
+                    }).catch(console.error);
+                });
+            }).catch(err => {
+                showToast("Erreur serveur lors de la rédaction.", "error");
+                btn.disabled = false; btn.innerHTML = originalText; lucide.createIcons();
+            });
+        };
+
+        /* ============ AUTRES SUBMITS ============ */
+        document.getElementById('form-assoc').onsubmit = (e) => {
+            e.preventDefault();
+            const f = e.target;
+            api('majIdentite', {
+                nom: f.nom.value.trim(),
+                contact: f.contact.value.trim(),
+                logo: document.getElementById('logo-base64').value || '',
+                supprimerLogo: document.getElementById('logo-supprime').value === '1'
+            }).then(r => {
+                if (r.status === 'error') { showToast(r.msg, 'error'); return; }
+                showToast(r.msg);
+                appliquerBranding(r.infos);
+                toggleModal('modal-assoc', false);
+            }).catch(console.error);
+        };
+
+        document.getElementById('form-type-excep').onsubmit = (e) => {
+            e.preventDefault();
+            api('enregistrerTypeExcep', { id: document.getElementById('edit-e-id').value, label: document.getElementById('e-label').value, montant: document.getElementById('e-val').value })
+                .then(r => { showToast(r.msg); resetTypeExcepForm(); loadExcepTypesList(); loadExcepSearchMotifs(); }).catch(console.error);
+        };
+
+        document.getElementById('form-depense').onsubmit = (e) => {
+            e.preventDefault();
+            api('enregistrerDepense', { motif: e.target.motif.value, beneficiaire: e.target.beneficiaire.value, montant: e.target.montant.value })
+                .then(r => { showToast(r.msg); toggleModal('modal-depense', false); e.target.reset(); loadDepenses(); loadStats(); }).catch(console.error);
+        };
+
+        document.getElementById('form-membre').onsubmit = (e) => {
+            e.preventDefault();
+            api('ajouterMembre', { nom: e.target.nom.value, prenom: e.target.prenom.value, contact: e.target.contact.value, ville: e.target.ville.value, sexe: e.target.sexe.value })
+                .then(r => { showToast(r.msg); toggleModal('modal-membre', false); e.target.reset(); loadMembres(); loadStats(); }).catch(console.error);
+        };
+
+        document.getElementById('form-mensuel').onsubmit = (e) => {
+            e.preventDefault();
+            if (!e.target.montant.value) { showToast("Définissez d'abord le montant de la mensualité dans la page Mensualités", "error"); return; }
+            const c = document.getElementById('select-m-membres').value.split('|');
+            api('enregistrerMensuel', { idMembre: c[0], nomMembre: c[1], mois: e.target.mois.value, annee: e.target.annee.value, montant: e.target.montant.value, typeCotis: 'MENSUALITÉ' })
+                .then(r => { showToast(r.msg); toggleModal('modal-mensuel', false); loadMensuel(); loadStats(); }).catch(console.error);
+        };
+
+        document.getElementById('form-excep').onsubmit = (e) => {
+            e.preventDefault();
+            const sel = document.getElementById('select-type-excep-payment');
+            if (!sel.value || !e.target.montant.value) { showToast("Choisissez d'abord l'événement", "error"); return; }
+            const c = document.getElementById('select-e-membres').value.split('|');
+            api('enregistrerExcep', { idMembre: c[0], nomMembre: c[1], motif: sel.options[sel.selectedIndex].text, montant: e.target.montant.value })
+                .then(r => { showToast(r.msg); toggleModal('modal-excep', false); loadExcep(); loadStats(); }).catch(console.error);
+        };
+
+        document.getElementById('form-type-mensuel').onsubmit = (e) => {
+            e.preventDefault();
+            api('majMontantMensualite', document.getElementById('m-val').value)
+                .then(r => { showToast(r.msg); e.target.reset(); loadMensualiteConfig(); }).catch(console.error);
+        };
+
+        document.getElementById('form-nomination').onsubmit = (e) => {
+            e.preventDefault();
+            const poste = document.getElementById('select-postes').value;
+            if (!poste) { showToast("Créez d'abord vos postes dans la page Bureau", "error"); return; }
+            const c = document.getElementById('select-membres').value.split('|');
+            api('nommerMembre', { idMembre: c[0], nomMembre: c[1], poste: poste })
+                .then(r => { showToast(r.msg); toggleModal('modal-nomination', false); loadBureau(); }).catch(console.error);
+        };
+
+        /* ============ CONFIRMATION ============ */
+        function askConfirm(msg, cb) { document.getElementById('confirm-msg').innerText = msg; document.getElementById('modal-confirm').classList.replace('hidden', 'flex'); confirmCallback = cb; lucide.createIcons(); }
+        document.getElementById('confirm-yes').onclick = () => { if (confirmCallback) confirmCallback(); closeConfirm(); };
+        function closeConfirm() { document.getElementById('modal-confirm').classList.replace('flex', 'hidden'); confirmCallback = null; }
+
+        /* ============ ACTIONS DIVERSES ============ */
+        function openModalPaiement(t) {
+            const sId = t === 'mensuel' ? 'select-m-membres' : 'select-e-membres';
+            toggleModal('modal-' + t, true);
+            document.getElementById(sId).innerHTML = listMembres.map(m => `<option value="${esc(m.id)}|${esc(m.nom)} ${esc(m.prenom)}">${esc(m.nom)} ${esc(m.prenom)}</option>`).join('');
+            if (t === 'mensuel') {
+                // Mensualité unique : montant verrouillé, défini dans la page Mensualités
+                const champ = document.getElementById('m-montant');
+                champ.value = '';
+                api('getMensualiteConfig').then(cfg => { champ.value = cfg && cfg.montant ? cfg.montant : ''; }).catch(console.error);
+            } else {
+                document.getElementById('e-montant').value = '';
+                api('getTypesExcep').then(x => {
+                    const s = document.getElementById('select-type-excep-payment');
+                    s.innerHTML = `<option value="">-- Choisir événement --</option>` + x.map(v => `<option value="${v.montant}">${esc(v.label)}</option>`).join('');
+                }).catch(console.error);
+            }
+        }
+
+        function openNomination() {
+            toggleModal('modal-nomination', true);
+            api('getPostes').then(p => {
+                document.getElementById('select-postes').innerHTML = p.length
+                    ? p.map(x => `<option value="${esc(x.label)}">${esc(x.label)}</option>`).join('')
+                    : '<option value="">— Aucun poste créé —</option>';
+                document.getElementById('select-membres').innerHTML = listMembres.map(m => `<option value="${esc(m.id)}|${esc(m.nom)} ${esc(m.prenom)}">${esc(m.nom)} ${esc(m.prenom)}</option>`).join('');
+            }).catch(console.error);
+        }
+
+        function handleLogo(i) {
+            lireImage(i, data => {
+                document.getElementById('logo-base64').value = data;
+                document.getElementById('logo-supprime').value = '0';
+                document.getElementById('btn-del-logo').style.display = '';
+                document.getElementById('logo-preview').innerHTML = `<img src="${data}" class="w-full h-full object-cover">`;
+            });
+        }
+
+        function delE(i) { api('supprimerTypeExcep', i).then(r => { showToast(r.msg, 'error'); loadExcepTypesList(); loadExcepSearchMotifs(); }).catch(console.error); }
+        function editE(i, l, v) { document.getElementById('edit-e-id').value = i; document.getElementById('e-label').value = l; document.getElementById('e-val').value = v; }
+        function resetTypeExcepForm() { document.getElementById('edit-e-id').value = ''; document.getElementById('form-type-excep').reset(); }
+
+        function preRemplirReunion(id) {
+            const r = listReunions.find(x => x.id === id);
+            if (!r) return;
+            toggleModal('modal-reunion', true);
+            const f = document.getElementById('form-reunion');
+            f.objet.value = r.objet;
+            f.lieu.value = r.lieu || '';
+            f.heure.value = r.heure || '';
+            f.heureFin.value = r.heureFin || '';
+            if (r.date) {
+                const parts = r.date.split('/');
+                if (parts.length === 3) f.date.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            document.getElementById('reunion-id').value = id;
+            document.getElementById('reunion-notes').value = "";
+            showToast("Mode modification activé");
+        }
+
+        function supprimerReunion(id) {
+            api('supprimerReunion', id).then(r => { showToast(r.msg, 'error'); loadReunions(); }).catch(console.error);
+        }
+
+        /* ============ DÉMARRAGE (connexion obligatoire) ============ */
+        window.onload = () => {
+            const theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.classList.replace('light', theme);
+            document.getElementById('theme-icon').setAttribute('data-lucide', theme === 'dark' ? 'sun' : 'moon');
+
+            const auj = new Date();
+            const dateTxt = auj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            document.getElementById('top-date-txt').innerText = dateTxt;
+            document.getElementById('dash-date').innerText = dateTxt;
+            document.getElementById('dash-year').innerText = 'Exercice ' + auj.getFullYear();
+            lucide.createIcons();
+
+            // Pas de session -> page Connexion / Inscription
+            const token = localStorage.getItem('mutasso_token');
+            if (!token) {
+                api('compteExiste').then(existe => afficherAuth(existe ? 'login' : 'signup')).catch(() => afficherAuth('login'));
+                return;
+            }
+            // Session existante -> on la valide puis on entre
+            api('infosCompte').then(infos => demarrerApp(infos)).catch(() => {
+                localStorage.removeItem('mutasso_token');
+                afficherAuth('login');
+            });
+        };
+    </script>
+</body>
+</html>
