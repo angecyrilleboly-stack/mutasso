@@ -44,6 +44,17 @@ app.get('/fichiers/:compte/:nom', async (req, res) => {
 // Pont google.script.run -> fonctions du backend (voir public/gas-bridge.js)
 // Ces fonctions sont accessibles sans être connecté :
 const FNS_PUBLIQUES = new Set(['compteExiste', 'creerCompte', 'connexion']);
+// Session MEMBRE (espace personnel en lecture seule) : ces
+// fonctions de gestion lui sont interdites côté serveur.
+const FNS_RESERVEES_ADMIN = new Set([
+  'ajouterMembre', 'modifierMembre', 'genererMdpMembre', 'supprimerAccesMembre',
+  'enregistrerMensuel', 'enregistrerExcep', 'enregistrerDepense',
+  'majMontantMensualite', 'enregistrerTypeMensuel', 'supprimerTypeMensuel',
+  'enregistrerTypeExcep', 'supprimerTypeExcep',
+  'nommerMembre', 'enregistrerPoste', 'supprimerPoste',
+  'enregistrerReunion', 'supprimerReunion', 'uploadFileToDrive',
+  'majIdentite', 'majMotDePasse', 'saveAssocInfos'
+]);
 app.post('/api/:fn', async (req, res) => {
   const fn = backend[req.params.fn];
   if (typeof fn !== 'function') {
@@ -52,9 +63,14 @@ app.post('/api/:fn', async (req, res) => {
   if (!FNS_PUBLIQUES.has(req.params.fn)) {
     // Chaque appel travaille sur le classeur de l'association
     // authentifiée : ses données sont isolées des autres comptes.
-    const idCompte = await backend.verifierToken(req.get('X-Auth-Token') || '');
-    if (!idCompte || !(await backend.activerCompte(idCompte))) {
+    // Un jeton MEMBRE ouvre le même classeur, mais en lecture
+    // seule (accesMembre) et filtré sur ses propres cotisations.
+    const session = await backend.verifierSession(req.get('X-Auth-Token') || '');
+    if (!session || !(await backend.activerCompte(session.idCompte, session.idMembre))) {
       return res.status(401).json({ __error: 'Session invalide ou expirée.', __auth: true });
+    }
+    if (session.role === 'membre' && FNS_RESERVEES_ADMIN.has(req.params.fn)) {
+      return res.status(403).json({ __error: 'Action réservée au gestionnaire de l\'association.', __auth: false });
     }
   }
   let args = Array.isArray(req.body) ? req.body

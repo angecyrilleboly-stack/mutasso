@@ -21,6 +21,7 @@ const SHEET_REUNIONS = "REUNIONS";
 const SHEET_INFOS = "ASSOC_INFOS";
 const SHEET_TYPES_MENSUELS = "MENSUEL_TYPES";
 const SHEET_TYPES_EXCEP = "EXCEP_TYPES";
+const SHEET_ACCES_MEMBRES = "MEMBRES_ACCES";
 
 // Feuilles du classeur d'UNE association (structure standard)
 const TABLES_STANDARD = [
@@ -33,7 +34,8 @@ const TABLES_STANDARD = [
   { name: SHEET_REUNIONS, headers: ["ID", "Date", "Objet", "Presents_Bureau", "Invites", "Compte_Rendu", "Lieu", "Heure", "Heure_Fin"] },
   { name: SHEET_INFOS, headers: ["Nom", "Telephone", "Adresse", "Email", "Logo_URL"] },
   { name: SHEET_TYPES_MENSUELS, headers: ["Libellé Type", "Montant"] },
-  { name: SHEET_TYPES_EXCEP, headers: ["Libellé", "Montant"] }
+  { name: SHEET_TYPES_EXCEP, headers: ["Libellé", "Montant"] },
+  { name: SHEET_ACCES_MEMBRES, headers: ["ID_Membre", "Nom_Complet", "Hash", "Sel"] }
 ];
 
 // ============================================================
@@ -74,6 +76,9 @@ function normaliserEmail(e) { return String(e || '').toLowerCase().trim(); }
 // dans CE classeur — jamais dans celui d'une autre association.
 let SS = null;
 let compteActif = null;
+// Session MEMBRE (espace personnel en lecture seule) :
+// renseigné quand le jeton correspond à l'accès d'un adhérent.
+let accesMembre = null;
 
 function hashMdp(mdp, salt) {
   salt = salt || crypto.randomBytes(16).toString('hex');
@@ -85,6 +90,46 @@ function hashMdp(mdp, salt) {
 // passe change : les autres sessions sont alors déconnectées)
 function tokenPour(entree) {
   return crypto.createHash('sha256').update(entree.id + '|' + entree.hash).digest('hex');
+}
+
+// Token d'un ESPACE MEMBRE : "M|compte|membre|signature".
+// La signature dépend du hash du mot de passe du membre : elle
+// change (et déconnecte les sessions) si le mot de passe change.
+function tokenMembrePour(idCompte, idMembre, hash) {
+  const sig = crypto.createHash('sha256').update(idCompte + '|M|' + idMembre + '|' + hash).digest('hex');
+  return 'M|' + idCompte + '|' + idMembre + '|' + sig;
+}
+
+// Mot de passe temporaire lisible (sans caractères ambigus 0/O/1/I)
+function mdpAleatoire() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const rnd = crypto.randomBytes(8);
+  let m = '';
+  for (let i = 0; i < 8; i++) m += chars[rnd[i] % chars.length];
+  return m;
+}
+
+// Cherche, dans le classeur d'une association, l'accès membre
+// dont le mot de passe correspond (connexion : email de
+// l'association + mot de passe personnel du membre).
+async function chercherAccesMembre(idCompte, mdp) {
+  await ouvrirClasseur(idCompte);
+  const tables = tablesDuClasseur(idCompte) || {};
+  const lignes = (tables[SHEET_ACCES_MEMBRES] || []).slice(1);
+  if (!lignes.length) return null;
+  const membres = (tables[SHEET_MEMBRES] || []).slice(1);
+  for (const r of lignes) {
+    if (!r || !r[0] || !r[2] || !r[3]) continue;
+    const { hash } = hashMdp(mdp, r[3].toString());
+    if (!memesHash(hash, r[2].toString())) continue;
+    const mRow = membres.find(m => m && m[0] && m[0].toString() === r[0].toString());
+    if (!mRow) continue; // adhérent retiré du registre : accès ignoré
+    return {
+      id: r[0].toString(), nom: mRow[1].toString(), prenom: mRow[2].toString(),
+      token: tokenMembrePour(idCompte, r[0].toString(), r[2].toString())
+    };
+  }
+  return null;
 }
 
 function infosPubliques(e) {
@@ -126,41 +171,93 @@ async function connexion(email, mdp) {
   const entree = (await lireRegistre()).find(c => c.email === emailNorm);
   if (!entree) return { status: "error", msg: "Email ou mot de passe incorrect." };
   const { hash } = hashMdp(mdp, entree.salt);
-  if (!memesHash(hash, entree.hash)) {
-    const nb = (etat ? etat.nb : 0) + 1;
-    tentativesConnexion[emailNorm] = { nb: nb, bloqueJusqu: nb >= MAX_TENTATIVES ? Date.now() + DUREE_BLOCAGE_MS : 0 };
-    if (nb >= MAX_TENTATIVES) return { status: "error", msg: "Trop de tentatives échouées. Compte bloqué 10 minutes." };
-    return { status: "error", msg: `Email ou mot de passe incorrect. (${MAX_TENTATIVES - nb} tentative(s) restante(s))` };
+  if (memesHash(hash, entree.hash)) {
+    delete tentativesConnexion[emailNorm];
+    return { status: "success", msg: "Connexion réussie !", token: tokenPour(entree), infos: { ...infosPubliques(entree), role: "admin" } };
   }
-  delete tentativesConnexion[emailNorm];
-  return { status: "success", msg: "Connexion réussie !", token: tokenPour(entree), infos: infosPubliques(entree) };
+  // Espace membre : même email (celui de l'association), mais mot
+  // de passe personnel remis par le gestionnaire.
+  const acces = await chercherAccesMembre(entree.id, mdp);
+  if (acces) {
+    delete tentativesConnexion[emailNorm];
+    return {
+      status: "success", msg: "Bienvenue " + acces.prenom + " !", token: acces.token,
+      infos: { ...infosPubliques(entree), role: "membre", membre: { id: acces.id, nom: acces.nom, prenom: acces.prenom } }
+    };
+  }
+  const nb = (etat ? etat.nb : 0) + 1;
+  tentativesConnexion[emailNorm] = { nb: nb, bloqueJusqu: nb >= MAX_TENTATIVES ? Date.now() + DUREE_BLOCAGE_MS : 0 };
+  if (nb >= MAX_TENTATIVES) return { status: "error", msg: "Trop de tentatives échouées. Compte bloqué 10 minutes." };
+  return { status: "error", msg: `Email ou mot de passe incorrect. (${MAX_TENTATIVES - nb} tentative(s) restante(s))` };
 }
 
 // Retourne l'id du compte correspondant au token, sinon null
 async function verifierToken(token) {
+  const s = await verifierSession(token);
+  return s ? s.idCompte : null;
+}
+
+// Valide un jeton de session (admin OU membre) et décrit la
+// session : { idCompte, role, idMembre } — sinon null.
+async function verifierSession(token) {
   if (!token) return null;
+  // Session administrateur (jeton sha256 hexa)
   const entree = (await lireRegistre()).find(c => memesHash(tokenPour(c), token));
-  return entree ? entree.id : null;
+  if (entree) return { idCompte: entree.id, role: "admin", idMembre: null };
+  // Session membre : jeton « M|compte|membre|signature »
+  if (String(token).startsWith('M|')) {
+    const p = String(token).split('|');
+    if (p.length !== 4) return null;
+    const idCompte = p[1], idMembre = p[2], sig = p[3];
+    const compte = (await lireRegistre()).find(c => c.id === idCompte);
+    if (!compte) return null;
+    await ouvrirClasseur(idCompte);
+    const tables = tablesDuClasseur(idCompte) || {};
+    const lignes = (tables[SHEET_ACCES_MEMBRES] || []);
+    for (let i = 1; i < lignes.length; i++) {
+      const r = lignes[i];
+      if (r && r[0] && r[0].toString() === idMembre && r[2]) {
+        const attendu = crypto.createHash('sha256').update(idCompte + '|M|' + idMembre + '|' + r[2].toString()).digest('hex');
+        return memesHash(attendu, sig) ? { idCompte: idCompte, role: "membre", idMembre: idMembre } : null;
+      }
+    }
+  }
+  return null;
 }
 
 // Bascule le contexte de données sur l'association donnée.
 // Si son classeur est neuf, les feuilles standard sont créées.
+// idMembre (optionnel) : la session ouverte est l'ESPACE MEMBRE
+// de cet adhérent (lecture seule, données filtrées sur lui).
 // NB : toutes les opérations feuilles sont synchrones, le
 // basculement par requête est donc sans risque de mélange.
-async function activerCompte(id) {
+async function activerCompte(id, idMembre) {
   const entree = (await lireRegistre()).find(c => c.id === id);
   if (!entree) return false;
   compteActif = entree;
+  accesMembre = null;
   SS = await ouvrirClasseur(entree.id);
   const brut = tablesDuClasseur(entree.id) || {};
   let complet = TABLES_STANDARD.every(t => brut[t.name]);
   // Migration : anciens classeurs REUNIONS sans la colonne Heure_Fin
   if (brut.REUNIONS && brut.REUNIONS[0] && brut.REUNIONS[0].length < 9) complet = false;
   if (!complet) { initialiserMUTASSO(); seedDefaults(); }
+  if (idMembre) {
+    const m = getMembres().find(x => x.id === String(idMembre));
+    if (!m) return false; // adhérent introuvable : session refusée
+    accesMembre = { id: m.id, nom: m.nom, prenom: m.prenom };
+  }
   return true;
 }
 
-function infosCompte() { return compteActif ? infosPubliques(compteActif) : null; }
+// Infos de session : identité de l'association +, pour un membre,
+// son rôle ("membre") et sa propre identité.
+function infosCompte() {
+  if (!compteActif) return null;
+  const base = infosPubliques(compteActif);
+  if (accesMembre) return { ...base, role: "membre", membre: accesMembre };
+  return { ...base, role: "admin" };
+}
 
 // Modification de l'identité (nom, contact, logo) depuis Paramètres
 function majIdentite(d) {
@@ -188,6 +285,66 @@ function majMotDePasse(ancien, nouveau) {
   e.hash = nh.hash; e.salt = nh.salt;
   majEntreeRegistre(e);
   return { status: "success", msg: "Mot de passe mis à jour !", token: tokenPour(e) };
+}
+
+/* ============================================================
+// ESPACES MEMBRES — accès en lecture seule
+//   - Le gestionnaire (admin) génère un mot de passe remis au
+//     membre ; le membre se connecte avec l'email de
+//     l'association + ce mot de passe, et peut le changer.
+//   - Feuille MEMBRES_ACCES : [ID_Membre, Nom_Complet, Hash, Sel]
+// ============================================================ */
+
+// Identifiants des membres disposant d'un accès actif
+function idsAccesMembres() {
+  const s = SS.getSheetByName(SHEET_ACCES_MEMBRES);
+  if (!s || s.getLastRow() <= 1) return [];
+  return s.getDataRange().getValues().slice(1).filter(r => r[0]).map(r => r[0].toString());
+}
+
+// Génère (ou renouvelle) le mot de passe de l'espace d'un membre.
+// Le mot de passe en clair n'est montré QU'UNE fois au gestionnaire.
+function genererMdpMembre(idMembre) {
+  const m = getMembres().find(x => x.id === String(idMembre));
+  if (!m) return { status: "error", msg: "Membre introuvable." };
+  const mdp = mdpAleatoire();
+  const { salt, hash } = hashMdp(mdp);
+  const s = SS.getSheetByName(SHEET_ACCES_MEMBRES);
+  const data = s.getDataRange().getValues();
+  const ligne = data.findIndex((r, i) => i > 0 && r[0] && r[0].toString() === String(idMembre));
+  const nomComplet = (m.prenom + " " + m.nom).trim();
+  if (ligne > 0) s.getRange(ligne + 1, 1, 1, 4).setValues([[m.id, nomComplet, hash, salt]]);
+  else s.appendRow([m.id, nomComplet, hash, salt]);
+  return {
+    status: "success",
+    msg: "Mot de passe généré pour " + nomComplet + ".",
+    mdp: mdp, email: compteActif ? compteActif.email : "", nom: m.nom, prenom: m.prenom
+  };
+}
+
+// Retire l'accès de l'espace membre (le mot de passe ne marche plus)
+function supprimerAccesMembre(idMembre) {
+  const s = SS.getSheetByName(SHEET_ACCES_MEMBRES);
+  const data = s.getDataRange().getValues();
+  const ligne = data.findIndex((r, i) => i > 0 && r[0] && r[0].toString() === String(idMembre));
+  if (ligne < 0) return { status: "error", msg: "Ce membre n'a pas d'accès actif." };
+  s.deleteRow(ligne + 1);
+  return { status: "success", msg: "Accès membre révoqué." };
+}
+
+// Le membre change lui-même son mot de passe (nouveau jeton renvoyé)
+function majMotDePasseMembre(ancien, nouveau) {
+  if (!accesMembre || !compteActif) return { status: "error", msg: "Aucun espace membre actif." };
+  if (String(nouveau).length < 6) return { status: "error", msg: "Nouveau mot de passe : 6 caractères minimum." };
+  const s = SS.getSheetByName(SHEET_ACCES_MEMBRES);
+  const data = s.getDataRange().getValues();
+  const ligne = data.findIndex((r, i) => i > 0 && r[0] && r[0].toString() === accesMembre.id);
+  if (ligne < 0) return { status: "error", msg: "Accès introuvable." };
+  const { hash } = hashMdp(ancien, data[ligne][3].toString());
+  if (!memesHash(hash, data[ligne][2].toString())) return { status: "error", msg: "Ancien mot de passe incorrect." };
+  const nh = hashMdp(nouveau);
+  s.getRange(ligne + 1, 3, 1, 2).setValues([[nh.hash, nh.salt]]);
+  return { status: "success", msg: "Mot de passe mis à jour !", token: tokenMembrePour(compteActif.id, accesMembre.id, nh.hash) };
 }
 
 function getMembres() { const s = SS.getSheetByName(SHEET_MEMBRES); const v = s.getDataRange().getValues(); return v.length <= 1 ? [] : v.slice(1).filter(r => r[0] !== "").map(row => ({ id: row[0].toString(), nom: row[1].toString(), prenom: row[2].toString(), contact: row[3].toString(), ville: row[4].toString(), sexe: row[5].toString() })); }
@@ -283,12 +440,14 @@ function contactsParId() {
 }
 
 function getMensuels(m, a) { const s = SS.getSheetByName(SHEET_MENSUEL); if (s.getLastRow() <= 1) return []; let d = s.getDataRange().getValues().slice(1).reverse();
+  if (accesMembre) d = d.filter(r => r[0].toString() === accesMembre.id);
   if (m) d = d.filter(r => r[2] === m); if (a) d = d.filter(r => r[3].toString() === a.toString());
   const contacts = contactsParId();
   return d.map(r => ({ nom: r[1], periode: r[2]+" "+r[3], montant: r[4], date: r[5] instanceof Date ? r[5].toLocaleDateString('fr-FR') : r[5], contact: contacts[String(r[0])] || '' }));
 }
 
 function getExceps(m) { const s = SS.getSheetByName(SHEET_EXCEP); if (s.getLastRow() <= 1) return []; let d = s.getDataRange().getValues().slice(1).reverse();
+  if (accesMembre) d = d.filter(r => r[0].toString() === accesMembre.id);
   if (m) d = d.filter(r => r[2].toString().toUpperCase() === m.toUpperCase());
   const contacts = contactsParId();
   return d.map(r => ({ nom: r[1], motif: r[2], montant: r[3], date: r[4] instanceof Date ? r[4].toLocaleDateString('fr-FR') : r[4], contact: contacts[String(r[0])] || '' }));
@@ -305,6 +464,7 @@ function ajouterMembre(d) { SS.getSheetByName(SHEET_MEMBRES).appendRow(["M-"+Mat
 // Le nom est aussi répercuté dans les feuilles de cotisations pour
 // que les historiques restent cohérents.
 function modifierMembre(d) {
+  if (accesMembre) return { status: "error", msg: "Action réservée au gestionnaire." };
   if (!d.id) return { status: "error", msg: "Membre introuvable." };
   if (!d.nom || !d.prenom || !d.contact) return { status: "error", msg: "Nom, prénom et contact obligatoires." };
   const s = SS.getSheetByName(SHEET_MEMBRES);
@@ -660,5 +820,6 @@ module.exports = {
   supprimerTypeExcep, supprimerTypeMensuel, uploadFileToDrive, autoriserDrive,
   genererPV_IA, testAutorisationIA, initialiserMUTASSO, seedDefaults,
   getRapportJour, getRapportPeriode, genererRapportIA,
-  compteExiste, creerCompte, connexion, verifierToken, activerCompte, infosCompte, majIdentite, majMotDePasse
+  compteExiste, creerCompte, connexion, verifierToken, verifierSession, activerCompte, infosCompte, majIdentite, majMotDePasse,
+  genererMdpMembre, supprimerAccesMembre, majMotDePasseMembre, idsAccesMembres
 };

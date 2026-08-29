@@ -276,6 +276,7 @@
                         <form id="form-login" class="space-y-4">
                             <div><label class="label-style">Email de l'association</label><input type="email" name="email" required class="input-field" placeholder="association@email.com" autocomplete="username"></div>
                             <div><label class="label-style">Mot de passe</label><input type="password" name="mdp" required class="input-field" placeholder="••••••••" autocomplete="current-password"></div>
+                            <p class="text-[9.5px] font-bold leading-relaxed" style="color:var(--muted)">Membre : connectez-vous avec l'email de l'association et le mot de passe remis par le gestionnaire.</p>
                             <p id="login-err" class="text-[11px] font-bold hidden" style="color:var(--out)"></p>
                             <button type="submit" class="btn-primary w-full justify-center !py-4"><i data-lucide="log-in" class="w-4 h-4"></i>Se connecter</button>
                             <p class="text-center text-[11px] font-bold" style="color:var(--muted)">Première utilisation ? <span class="cursor-pointer underline" style="color:var(--primary)" onclick="afficherAuth('signup')">Créer le compte</span></p>
@@ -529,8 +530,8 @@
                         <div class="w-full h-[290px]"><canvas id="financeChart"></canvas></div>
                     </div>
 
-                    <!-- DERNIÈRES OPÉRATIONS -->
-                    <div class="app-card p-7">
+                    <!-- DERNIÈRES OPÉRATIONS (gestionnaire uniquement) -->
+                    <div class="app-card p-7 admin-only">
                         <div class="flex items-center justify-between mb-3">
                             <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Dernières opérations</h3>
                             <div class="icon-tile it-teal" style="width:36px;height:36px;border-radius:12px"><i data-lucide="history" class="w-4 h-4"></i></div>
@@ -549,7 +550,7 @@
                     </div>
                     <div class="flex gap-3">
                         <button onclick="exportCSV('table-membres', 'Membres.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
-                        <button onclick="ouvrirNouveauMembre()" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Nouveau</button>
+                        <button onclick="ouvrirNouveauMembre()" class="btn-primary admin-only"><i data-lucide="plus" class="w-4 h-4"></i>Nouveau</button>
                     </div>
                 </div>
                 <div class="app-card overflow-hidden">
@@ -557,6 +558,32 @@
                         <thead><tr><th>Membre</th><th>Contact</th><th>Profil</th><th class="text-right !pr-8">Détails</th></tr></thead>
                         <tbody id="table-membres"></tbody>
                     </table>
+                </div>
+                <!-- Accès aux espaces membres (gestionnaire uniquement) -->
+                <div class="app-card p-7 mt-6 admin-only">
+                    <div class="flex items-start justify-between gap-4 mb-5">
+                        <div>
+                            <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Espaces membres</h3>
+                            <p class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color:var(--muted)">Générer le mot de passe d'accès d'un membre</p>
+                        </div>
+                        <div class="icon-tile it-teal" style="width:40px;height:40px;border-radius:13px"><i data-lucide="key-round" class="w-4 h-4"></i></div>
+                    </div>
+                    <form id="form-acces-membre" class="p-4 rounded-[18px] flex flex-wrap gap-3 items-end" style="background:var(--field);border:1px solid var(--field-border)">
+                        <div class="flex-1 min-w-[220px]"><label class="label-style">Membre</label><select id="acces-membre-select" class="input-field rounded-xl"><option value="">Chargement…</option></select></div>
+                        <button type="submit" class="btn-primary justify-center"><i data-lucide="key-round" class="w-4 h-4"></i>Générer le mot de passe</button>
+                    </form>
+                    <p class="text-[9.5px] font-bold mt-3 leading-relaxed" style="color:var(--muted)">Le membre se connecte avec l'email de l'association et ce mot de passe : il accède alors à son espace personnel (ses cotisations, en lecture seule). Il pourra le changer lui-même depuis son espace. Générer un nouveau mot de passe remplace l'ancien.</p>
+                    <!-- Mot de passe généré : affiché une seule fois -->
+                    <div id="acces-membre-resultat" class="hidden mt-4 p-4 rounded-[18px]" style="background:rgba(5,150,105,.08);border:1px solid rgba(5,150,105,.25)">
+                        <p class="text-[10px] font-black uppercase tracking-widest" style="color:var(--in)">Accès de <span id="acces-m-nom">—</span></p>
+                        <div class="flex items-center gap-3 mt-2 flex-wrap">
+                            <code id="acces-m-mdp" class="text-[20px] font-black tracking-[.2em]" style="color:var(--primary)">—</code>
+                            <button type="button" onclick="copierTexte(document.getElementById('acces-m-mdp').innerText)" class="btn-ghost"><i data-lucide="copy" class="w-3.5 h-3.5"></i>Copier</button>
+                            <button type="button" onclick="envoyerAccesWhatsApp()" class="wa-btn" title="Envoyer par WhatsApp"><span id="wa-svg-slot-acces"></span></button>
+                        </div>
+                        <p class="text-[9px] font-bold mt-2 leading-relaxed" style="color:var(--muted)">Notez ce mot de passe et communiquez-le au membre : il ne sera plus affiché. Email de connexion : <b id="acces-m-email">—</b></p>
+                    </div>
+                    <div id="acces-m-liste" class="mt-5 space-y-2"></div>
                 </div>
             </div>
 
@@ -618,7 +645,7 @@
                         <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--primary)"></span>Bureau</h3>
                         <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Membres du comité et composition</p>
                     </div>
-                    <button onclick="openNomination()" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Nommer</button>
+                    <button onclick="openNomination()" class="btn-primary admin-only"><i data-lucide="plus" class="w-4 h-4"></i>Nommer</button>
                 </div>
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
                     <div class="xl:col-span-2 app-card overflow-hidden self-start">
@@ -627,7 +654,8 @@
                             <tbody id="table-bureau"></tbody>
                         </table>
                     </div>
-                    <div class="app-card p-7 flex flex-col self-start">
+                    <!-- Postes du bureau : gestionnaire uniquement (le membre voit la page Bureau en lecture seule) -->
+                    <div class="app-card p-7 flex flex-col self-start admin-only">
                         <div class="flex items-start justify-between gap-4 mb-5">
                             <div>
                                 <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Postes du bureau</h3>
@@ -655,7 +683,7 @@
                     </div>
                     <div class="flex gap-3">
                         <button onclick="exportCSV('table-mensuel', 'Mensualites.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
-                        <button onclick="openModalPaiement('mensuel')" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Encaisser</button>
+                        <button onclick="openModalPaiement('mensuel')" class="btn-primary admin-only"><i data-lucide="plus" class="w-4 h-4"></i>Encaisser</button>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
@@ -672,7 +700,7 @@
                             </table>
                         </div>
                     </div>
-                    <div class="app-card p-7 flex flex-col">
+                    <div class="app-card p-7 flex flex-col admin-only">
                         <div class="flex items-start justify-between gap-4 mb-5">
                             <div>
                                 <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Mensualité</h3>
@@ -705,7 +733,7 @@
                     </div>
                     <div class="flex gap-3">
                         <button onclick="exportCSV('table-excep', 'Exceptionnelles.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
-                        <button onclick="openModalPaiement('excep')" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Encaisser</button>
+                        <button onclick="openModalPaiement('excep')" class="btn-primary admin-only"><i data-lucide="plus" class="w-4 h-4"></i>Encaisser</button>
                     </div>
                 </div>
                 <div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
@@ -721,7 +749,7 @@
                             </table>
                         </div>
                     </div>
-                    <div class="app-card p-7 flex flex-col">
+                    <div class="app-card p-7 flex flex-col admin-only">
                         <div class="flex items-start justify-between gap-4 mb-5">
                             <div>
                                 <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Motifs spéciaux</h3>
@@ -752,7 +780,7 @@
                     </div>
                     <div class="flex gap-3">
                         <button onclick="exportCSV('table-depenses', 'Depenses.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
-                        <button onclick="toggleModal('modal-depense', true)" class="btn-danger"><i data-lucide="plus" class="w-4 h-4"></i>Sortie</button>
+                        <button onclick="toggleModal('modal-depense', true)" class="btn-danger admin-only"><i data-lucide="plus" class="w-4 h-4"></i>Sortie</button>
                     </div>
                 </div>
                 <div class="app-card overflow-hidden">
@@ -822,7 +850,7 @@
                     <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Configuration de l'association</p>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[720px]">
-                    <div class="app-card tile-hover p-10 flex flex-col items-center gap-5" onclick="openModalAssoc()">
+                    <div class="app-card tile-hover p-10 flex flex-col items-center gap-5 admin-only" onclick="openModalAssoc()">
                         <div class="icon-tile it-blue" style="width:60px;height:60px;border-radius:20px"><i data-lucide="pen-line" class="w-7 h-7"></i></div>
                         <h4 class="font-black text-xs uppercase tracking-wide">Modifier</h4>
                         <p class="text-[11px] font-semibold text-center leading-relaxed" style="color:var(--muted)">Nom, contact et logo de l'association</p>
@@ -1294,13 +1322,46 @@
         }
 
         function demarrerApp(infos) {
-            appliquerBranding(infos || {});
+            infos = infos || {};
+            // Espace MEMBRE : lecture seule, données filtrées sur lui
+            window.roleActif = infos.role === 'membre' ? 'membre' : 'admin';
+            window.membreConnecte = infos.membre || null;
+            appliquerBranding(infos);
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('auth-screen').classList.remove('flex');
             document.getElementById('app-layout').classList.remove('hidden');
+            appliquerModeMembre();
             loadExcepSearchMotifs();
             showPage('dashboard');
             lucide.createIcons();
+        }
+
+        /* ============ ESPACE MEMBRE (lecture seule) ============ */
+        // Masque menus et boutons de gestion réservés au gestionnaire.
+        function appliquerModeMembre() {
+            if (window.roleActif !== 'membre') return;
+            // Menus sans objet pour un membre (il garde Dashboard,
+            // Bureau, Mensualités, Spéciales, Dépenses, Rapports et
+            // Paramètres pour changer son mot de passe)
+            ['m-membres', 'm-reunions', 'm-point'].forEach(id => {
+                const el = document.getElementById(id); if (el) el.style.display = 'none';
+            });
+            // Boutons / cartes de gestion (Encaisser, Sortie, Nommer, Postes, config…)
+            document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+            // Identité du membre connecté dans la barre latérale
+            const m = window.membreConnecte;
+            if (m) {
+                document.getElementById('side-assoc').innerText = m.prenom + ' ' + m.nom;
+                document.getElementById('side-email').innerText = 'Espace membre — consultation';
+            }
+        }
+
+        // Copie un texte dans le presse-papiers (mot de passe généré)
+        function copierTexte(t) {
+            navigator.clipboard.writeText(String(t)).then(
+                () => showToast('Mot de passe copié !'),
+                () => showToast('Copie impossible — notez-le manuellement.', 'error')
+            );
         }
 
         /* ============ UI DE BASE ============ */
@@ -1404,7 +1465,23 @@
                     api('getMembres'),
                     api('getEtatPaiements', 'mensuel', MOIS[m], String(y))
                 ]);
-                listMembres = membres;
+
+                // Espace membre : le taux de recouvrement affiché se
+                // limite à SA situation (payé / impayé ce mois-ci).
+                let etatAffiche = etat;
+                if (window.roleActif === 'membre' && window.membreConnecte) {
+                    const moi = etat.filter(x => x.id === window.membreConnecte.id);
+                    setRing(moi.length && moi[0].aPaye ? 100 : 0);
+                    document.getElementById('ring-month').innerText = `${MOIS[m]} ${y}`;
+                    document.getElementById('ring-sub').innerText = moi.length ? (moi[0].aPaye ? 'Mensualité du mois réglée' : 'Mensualité du mois impayée') : '—';
+                    document.getElementById('ring-pct').innerText = moi.length && moi[0].aPaye ? '100%' : '0%';
+                    etatAffiche = moi;
+                } else {
+                    const paid = etat.filter(x => x.aPaye).length;
+                    setRing(etat.length ? (paid / etat.length) * 100 : 0);
+                    document.getElementById('ring-month').innerText = `${MOIS[m]} ${y}`;
+                    document.getElementById('ring-sub').innerText = etat.length ? `${paid} / ${etat.length} membres à jour` : 'Aucun membre enregistré';
+                }
 
                 document.getElementById('stat-caisse').innerText = fmt(stats.caisse) + ' FCFA';
                 document.getElementById('stat-count').innerText = stats.totalMembres;
@@ -1426,13 +1503,11 @@
                 av.innerHTML = membres.slice(-4).reverse().map(mm => `<span class="av-c" title="${esc(mm.nom)} ${esc(mm.prenom)}">${esc(mm.nom.charAt(0))}${esc(mm.prenom.charAt(0))}</span>`).join('')
                     + (membres.length > 4 ? `<span class="av-c more">+${membres.length - 4}</span>` : '');
 
-                const paid = etat.filter(x => x.aPaye).length;
-                setRing(etat.length ? (paid / etat.length) * 100 : 0);
-                document.getElementById('ring-month').innerText = `${MOIS[m]} ${y}`;
-                document.getElementById('ring-sub').innerText = etat.length ? `${paid} / ${etat.length} membres à jour` : 'Aucun membre enregistré';
+                const paid = etatAffiche.filter(x => x.aPaye).length;
                 lucide.createIcons();
             } catch (e) { console.error(e); }
-            loadRecent();
+            // DERNIÈRES OPÉRATIONS : réservées au gestionnaire
+            if (window.roleActif !== 'membre') loadRecent();
         }
 
         async function loadRecent() {
@@ -1744,7 +1819,7 @@
 
         /* ============ WHATSAPP (reçus et rapports) ============ */
         const WA_ICONE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>';
-        ['wa-svg-slot-1', 'wa-svg-slot-2', 'wa-modal-ic'].forEach(id => { const e = document.getElementById(id); if (e) e.innerHTML = WA_ICONE; });
+        ['wa-svg-slot-1', 'wa-svg-slot-2', 'wa-svg-slot-acces', 'wa-modal-ic'].forEach(id => { const e = document.getElementById(id); if (e) e.innerHTML = WA_ICONE; });
 
         // Normalise un contact ivoirien/international en numéro wa.me
         function telWhatsApp(contact) {
@@ -1870,16 +1945,91 @@
                     <td><span class="date-pill"><i data-lucide="phone" class="w-3 h-3"></i>${esc(m.contact)}</span></td>
                     <td><span class="pill ${m.sexe === 'F' ? 'pill-ok' : 'periode-pill'}">${m.sexe === 'F' ? 'Féminin' : 'Masculin'}</span></td>
                     <td class="text-right !pr-8"><div class="flex items-center justify-end gap-1">
-                        <button onclick="event.stopPropagation(); ouvrirModifMembre('${esc(m.id)}')" title="Modifier" class="icon-btn"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+                        <button onclick="event.stopPropagation(); ouvrirModifMembre('${esc(m.id)}')" title="Modifier" class="icon-btn admin-only"><i data-lucide="pencil" class="w-4 h-4"></i></button>
                         <span class="icon-btn"><i data-lucide="chevron-right" class="w-4 h-4"></i></span>
                     </div></td>
                 </tr>`).join('') : emptyRow(4, 'Aucun membre enregistré');
                 lucide.createIcons();
+                remplirSelectAccesMembres();
             }).catch(console.error);
         }
 
+        /* ============ ESPACES MEMBRES (accès générés par le gestionnaire) ============ */
+        // Sélecteur du formulaire « Espaces membres » (page Membres)
+        function remplirSelectAccesMembres() {
+            if (window.roleActif === 'membre') return;
+            const sel = document.getElementById('acces-membre-select');
+            if (!sel || !listMembres) return;
+            sel.innerHTML = listMembres.map(m => `<option value="${esc(m.id)}">${esc(m.nom)} ${esc(m.prenom)}</option>`).join('');
+            afficherListeAcces();
+        }
+
+        // Liste des accès déjà actifs (mot de passe généré) + révocation
+        function afficherListeAcces() {
+            const box = document.getElementById('acces-m-liste');
+            if (!box) return;
+            api('idsAccesMembres').then(ids => {
+                const avecAcces = new Set(ids);
+                const actifs = listMembres.filter(m => avecAcces.has(m.id));
+                box.innerHTML = actifs.length
+                    ? `<p class="text-[10px] font-black uppercase tracking-widest mb-2" style="color:var(--muted)">Accès actifs (${actifs.length})</p>`
+                        + actifs.map(m => `<div class="flex items-center gap-3 p-3 rounded-2xl" style="background:var(--field);border:1px solid var(--field-border)">
+                            <div class="icon-tile it-teal" style="width:34px;height:34px;border-radius:11px"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i></div>
+                            <span class="flex-1 font-extrabold text-[11.5px] uppercase tracking-wide truncate">${esc(m.nom)} ${esc(m.prenom)}</span>
+                            <button onclick="revoquerAcces('${esc(m.id)}', '${esc(m.nom)}')" class="icon-btn red" title="Révoquer l'accès"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>`).join('')
+                    : '';
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        function revoquerAcces(id, nom) {
+            askConfirm(`Révoquer l'accès de ${nom} ? Son mot de passe ne fonctionnera plus.`, () => {
+                api('supprimerAccesMembre', id).then(r => {
+                    showToast(r.msg, r.status === 'error' ? 'error' : 'success');
+                    if (r.status !== 'error') afficherListeAcces();
+                }).catch(console.error);
+            });
+        }
+
+        // Envoi du mot de passe généré au membre via WhatsApp
+        function envoyerAccesWhatsApp() {
+            const m = window.dernierAccesGenere;
+            if (!m) { showToast('Générez d\'abord un mot de passe.', 'error'); return; }
+            const num = telWhatsApp(m.contact);
+            if (!num || num.length < 11) { showToast("Numéro WhatsApp manquant pour ce membre (vérifiez sa fiche).", 'error'); return; }
+            const assoc = (window.assocData.nom || "L'association").toUpperCase();
+            ouvrirWhatsApp(num,
+                `Bonjour ${m.prenom} ${m.nom},\n\n` +
+                `Voici vos accès à votre espace membre ${assoc} sur MUTASSO :\n\n` +
+                `• Email : ${m.email}\n` +
+                `• Mot de passe : ${m.mdp}\n\n` +
+                `Connectez-vous puis changez ce mot de passe depuis Paramètres.\n\n` +
+                `Cordialement,\n${assoc}`);
+            showToast("WhatsApp ouvert — le message est prêt à envoyer !");
+        }
+
+        document.getElementById('form-acces-membre').onsubmit = (e) => {
+            e.preventDefault();
+            const id = document.getElementById('acces-membre-select').value;
+            if (!id) { showToast('Choisissez un membre.', 'error'); return; }
+            api('genererMdpMembre', id).then(r => {
+                if (r.status === 'error') { showToast(r.msg, 'error'); return; }
+                // Affiché UNE seule fois : à communiquer au membre
+                window.dernierAccesGenere = { ...r, contact: (listMembres.find(m => m.id === id) || {}).contact };
+                document.getElementById('acces-m-nom').innerText = r.prenom + ' ' + r.nom;
+                document.getElementById('acces-m-mdp').innerText = r.mdp;
+                document.getElementById('acces-m-email').innerText = r.email;
+                document.getElementById('acces-membre-resultat').classList.remove('hidden');
+                showToast(r.msg + ' Communiquez-le au membre (affiché une seule fois).');
+                afficherListeAcces();
+                lucide.createIcons();
+            }).catch(console.error);
+        };
+
         // Ouvre le modal membre pré-rempli pour corriger les informations
         function ouvrirModifMembre(id) {
+            if (!adminSeulement()) return;
             const m = (listMembres || []).find(x => x.id === id);
             if (!m) { showToast('Membre introuvable.', 'error'); return; }
             const f = document.getElementById('form-membre');
@@ -1895,6 +2045,7 @@
 
         // Ouvre le modal membre vierge (mode création)
         function ouvrirNouveauMembre() {
+            if (!adminSeulement()) return;
             const f = document.getElementById('form-membre');
             f.reset(); f.querySelector('[name=id]').value = '';
             document.getElementById('membre-modal-titre').innerText = 'Nouveau membre';
@@ -2017,6 +2168,7 @@
         }
 
         function openModalReunion() {
+            if (!adminSeulement()) return;
             document.getElementById('form-reunion').reset();
             if (document.getElementById('reunion-id')) document.getElementById('reunion-id').value = "";
             toggleModal('modal-reunion', true);
@@ -2035,6 +2187,7 @@
 
         /* ============ PARAMÈTRES ============ */
         function openModalAssoc() {
+            if (!adminSeulement()) return;
             api('infosCompte').then(info => {
                 if (!info) return;
                 const f = document.getElementById('form-assoc');
@@ -2069,7 +2222,10 @@
             e.preventDefault();
             const f = e.target;
             if (f.nouveau.value !== f.confirm.value) { errAuth('mdp-err', 'Les deux mots de passe ne correspondent pas.'); return; }
-            api('majMotDePasse', f.ancien.value, f.nouveau.value).then(r => {
+            // Membre : change le mot de passe de SON espace ; admin :
+            // celui du compte de l'association.
+            const fn = window.roleActif === 'membre' ? 'majMotDePasseMembre' : 'majMotDePasse';
+            api(fn, f.ancien.value, f.nouveau.value).then(r => {
                 if (r.status === 'error') { errAuth('mdp-err', r.msg); return; }
                 localStorage.setItem('mutasso_token', r.token);
                 showToast(r.msg);
@@ -2350,7 +2506,14 @@ ${formuleLevee}</div>
         function closeConfirm() { document.getElementById('modal-confirm').classList.replace('flex', 'hidden'); confirmCallback = null; }
 
         /* ============ ACTIONS DIVERSES ============ */
+        // Sécurité UI : un membre ne peut pas ouvrir les modals de gestion
+        function adminSeulement() {
+            if (window.roleActif === 'membre') { showToast('Action réservée au gestionnaire.', 'error'); return false; }
+            return true;
+        }
+
         function openModalPaiement(t) {
+            if (!adminSeulement()) return;
             const sId = t === 'mensuel' ? 'select-m-membres' : 'select-e-membres';
             toggleModal('modal-' + t, true);
             document.getElementById(sId).innerHTML = listMembres.map(m => `<option value="${esc(m.id)}|${esc(m.nom)} ${esc(m.prenom)}">${esc(m.nom)} ${esc(m.prenom)}</option>`).join('');
@@ -2369,6 +2532,7 @@ ${formuleLevee}</div>
         }
 
         function openNomination() {
+            if (!adminSeulement()) return;
             toggleModal('modal-nomination', true);
             api('getPostes').then(p => {
                 document.getElementById('select-postes').innerHTML = p.length
