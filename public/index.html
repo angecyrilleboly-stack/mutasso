@@ -133,10 +133,6 @@
         .icon-btn.amber:hover { background: rgba(217,119,6,.12); color: #d97706; }
         .receipt-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--soft-teal); color: var(--primary); padding: 6px 10px; border-radius: 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; cursor: pointer; border: none; transition: .15s; }
         .receipt-btn:hover { filter: brightness(1.05); transform: translateY(-1px); }
-        .wa-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: rgba(37, 211, 102, .15); color: #1da851; padding: 6px 9px; border-radius: 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; cursor: pointer; border: none; transition: .15s; }
-        html.dark .wa-btn { background: rgba(37, 211, 102, .18); color: #4ade80; }
-        .wa-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
-        .wa-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
         .empty-cell { padding: 32px 16px !important; text-align: center; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
         .empty-cell svg { display: block; margin: 0 auto 8px; opacity: .5; }
 
@@ -426,6 +422,7 @@
             </div>
             <div class="flex items-center gap-3">
                 <div class="topbar-date" id="top-date"><i data-lucide="calendar-days" class="w-3.5 h-3.5"></i><span id="top-date-txt"></span></div>
+                <button onclick="activerNotificationsPush(true)" class="theme-btn hidden" id="btn-notif" title="Activer les notifications"><i data-lucide="bell" class="w-4 h-4"></i></button>
                 <button onclick="toggleDarkMode()" class="theme-btn"><i id="theme-icon" data-lucide="moon" class="w-4 h-4"></i></button>
             </div>
         </header>
@@ -577,11 +574,10 @@
                         <!-- Mot de passe généré : affiché une seule fois -->
                         <div id="acces-membre-resultat" class="hidden mt-4 p-4 rounded-[18px]" style="background:rgba(5,150,105,.08);border:1px solid rgba(5,150,105,.25)">
                             <p class="text-[10px] font-black uppercase tracking-widest" style="color:var(--in)">Accès de <span id="acces-m-nom">—</span></p>
-                            <div class="flex items-center gap-3 mt-2 flex-wrap">
-                                <code id="acces-m-mdp" class="text-[20px] font-black tracking-[.2em]" style="color:var(--primary)">—</code>
-                                <button type="button" onclick="copierTexte(document.getElementById('acces-m-mdp').innerText)" class="btn-ghost"><i data-lucide="copy" class="w-3.5 h-3.5"></i>Copier</button>
-                                <button type="button" onclick="envoyerAccesWhatsApp()" class="wa-btn" title="Envoyer par WhatsApp"><span id="wa-svg-slot-acces"></span></button>
-                            </div>
+                        <div class="flex items-center gap-3 mt-2 flex-wrap">
+                            <code id="acces-m-mdp" class="text-[20px] font-black tracking-[.2em]" style="color:var(--primary)">—</code>
+                            <button type="button" onclick="copierTexte(document.getElementById('acces-m-mdp').innerText)" class="btn-ghost"><i data-lucide="copy" class="w-3.5 h-3.5"></i>Copier</button>
+                        </div>
                             <p class="text-[9px] font-bold mt-2 leading-relaxed" style="color:var(--muted)">Notez ce mot de passe et communiquez-le au membre : il ne sera plus affiché. Email de connexion : <b id="acces-m-email">—</b></p>
                         </div>
                         <div id="acces-m-liste" class="mt-5 space-y-2"></div>
@@ -596,7 +592,7 @@
                         <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--primary)"></span>Réunions</h3>
                         <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Procès-verbaux archivés</p>
                     </div>
-                    <button onclick="openModalReunion()" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Nouvelle réunion</button>
+                    <button onclick="openModalReunion()" class="btn-primary admin-only"><i data-lucide="plus" class="w-4 h-4"></i>Nouvelle réunion</button>
                 </div>
                 <div class="app-card overflow-hidden">
                     <table class="app-table">
@@ -811,7 +807,6 @@
                         <p class="text-[12px] font-semibold leading-relaxed" style="color:var(--muted)">Membres à jour et non à jour selon la mensualité du mois <b>et</b> chaque cotisation exceptionnelle, bilan financier de toutes les cotisations depuis la création, le tout dans un document officiel avec une synthèse rédigée par l'IA.</p>
                         <div class="flex gap-2 mt-auto">
                             <button id="btn-rap-jour" onclick="genererRapport('jour')" class="btn-primary flex-1 justify-center"><i data-lucide="file-down" class="w-4 h-4"></i>Générer le PDF</button>
-                            <button id="btn-rap-jour-wa" onclick="partagerRapport('jour')" class="wa-btn !flex-none !py-3" title="Envoyer par WhatsApp"><span id="wa-svg-slot-1"></span>WhatsApp</button>
                         </div>
                     </div>
                     <div class="app-card p-8 flex flex-col gap-5">
@@ -839,7 +834,6 @@
                         </div>
                         <div class="flex gap-2 mt-auto">
                             <button id="btn-rap-periode" onclick="genererRapport('periode')" class="btn-primary flex-1 justify-center"><i data-lucide="file-down" class="w-4 h-4"></i>Générer le PDF</button>
-                            <button id="btn-rap-periode-wa" onclick="partagerRapport('periode')" class="wa-btn !flex-none !py-3" title="Envoyer par WhatsApp"><span id="wa-svg-slot-2"></span>WhatsApp</button>
                         </div>
                     </div>
                 </div>
@@ -1114,28 +1108,6 @@
         </div>
     </div>
 
-    <!-- ============ MODAL PARTAGE WHATSAPP (rapports) ============ -->
-    <div id="modal-partage" class="modal-wrap hidden items-center justify-center z-50">
-        <div class="modal-card max-w-sm p-8">
-            <div class="flex items-center gap-4 mb-6">
-                <div class="modal-ic" id="wa-modal-ic" style="background:rgba(37,211,102,.14);color:#1da851"></div>
-                <div><h3 class="text-lg font-black uppercase tracking-tight">Partager le rapport</h3><p class="text-[9.5px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--muted)">Envoi par WhatsApp</p></div>
-            </div>
-            <div class="space-y-4">
-                <div>
-                    <label class="label-style">Numéro WhatsApp du destinataire</label>
-                    <input id="wa-tel" class="input-field" placeholder="Ex : 07 00 00 00 00" inputmode="tel">
-                    <p class="text-[9px] font-bold mt-1.5" style="color:var(--muted)">Le rapport PDF sera généré puis envoyé avec un message prêt à l'envoi.</p>
-                </div>
-                <p id="wa-err" class="text-[11px] font-bold hidden" style="color:var(--out)"></p>
-                <div class="flex gap-3 pt-2">
-                    <button id="wa-envoyer" class="btn-primary flex-1 justify-center">Envoyer</button>
-                    <button type="button" onclick="toggleModal('modal-partage', false)" class="btn-cancel px-6">Annuler</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     </div><!-- /#app-layout -->
 
     <!-- Mobile Sidebar Overlay -->
@@ -1272,6 +1244,11 @@
             e.preventDefault();
             const f = e.target;
             const btn = f.querySelector('button[type="submit"]'); btn.disabled = true;
+            // Profite du TAP (geste utilisateur) pour demander la
+            // permission de notification — obligatoire sur iOS.
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().catch(() => {});
+            }
             api('connexion', f.email.value.trim(), f.mdp.value)
                 .then(r => {
                     btn.disabled = false;
@@ -1334,8 +1311,64 @@
             document.getElementById('app-layout').classList.remove('hidden');
             appliquerModeMembre();
             loadExcepSearchMotifs();
+            activerNotificationsPush();
+            // Permission pas encore donnée (session restaurée sans
+            // tap) : la cloche permet de l'accorder d'un geste
+            setTimeout(() => {
+                const cloche = document.getElementById('btn-notif');
+                if (cloche && 'Notification' in window && Notification.permission === 'default') cloche.classList.remove('hidden');
+            }, 800);
             showPage('dashboard');
             lucide.createIcons();
+        }
+
+        /* ============ NOTIFICATIONS PUSH ============ */
+        // Abonne CET appareil aux notifications de l'association
+        // (admin comme membre) : préviendra des événements comme
+        // une nouvelle cotisation exceptionnelle.
+        // manuel=true : déclenché par un tap (cloche) — affiche
+        // les erreurs, indispensable sur iOS (permission = geste).
+        async function activerNotificationsPush(manuel) {
+            const cloche = document.getElementById('btn-notif');
+            if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+                if (manuel) showToast('Notifications non prises en charge par ce navigateur.', 'error');
+                return;
+            }
+            try {
+                let permission = Notification.permission;
+                if (permission === 'default') permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    if (manuel) showToast('Notifications refusées — autorisez-les dans les réglages du navigateur.', 'error');
+                    if (cloche) cloche.classList.remove('hidden');
+                    return;
+                }
+                const r = await api('clePubliquePush');
+                if (!r || !r.cle) { if (manuel) showToast('Notifications indisponibles côté serveur.', 'error'); return; }
+                const enr = await navigator.serviceWorker.register('sw.js');
+                await navigator.serviceWorker.ready;
+                const sub = await enr.pushManager.getSubscription() || await enr.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64VersUint8(r.cle)
+                });
+                const res = await api('abonnerPush', sub.toJSON());
+                if (res && res.status === 'success') {
+                    if (cloche) cloche.classList.add('hidden');
+                    showToast('Notifications activées sur cet appareil.');
+                } else if (manuel) showToast('Activation impossible pour le moment.', 'error');
+            } catch (e) {
+                console.error('Push non activé :', e);
+                if (manuel) showToast('Activation impossible pour le moment.', 'error');
+            }
+        }
+
+        // Conversion clé VAPID base64url -> Uint8Array (attendu par pushManager)
+        function urlBase64VersUint8(b64) {
+            const pad = '='.repeat((4 - b64.length % 4) % 4);
+            const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+            const brut = atob(base64);
+            const arr = new Uint8Array(brut.length);
+            for (let i = 0; i < brut.length; i++) arr[i] = brut.charCodeAt(i);
+            return arr;
         }
 
         /* ============ ESPACE MEMBRE (lecture seule) ============ */
@@ -1343,9 +1376,9 @@
         function appliquerModeMembre() {
             if (window.roleActif !== 'membre') return;
             // Menus sans objet pour un membre (il garde Dashboard,
-            // Bureau, Mensualités, Spéciales, Dépenses, Rapports et
-            // Paramètres pour changer son mot de passe)
-            ['m-membres', 'm-reunions', 'm-point'].forEach(id => {
+            // Réunions PV en lecture, Bureau, Mensualités, Spéciales,
+            // Dépenses, Rapports et Paramètres pour son mot de passe)
+            ['m-membres', 'm-point'].forEach(id => {
                 const el = document.getElementById(id); if (el) el.style.display = 'none';
             });
             // Boutons / cartes de gestion (Encaisser, Sortie, Nommer, Postes, config…)
@@ -1561,7 +1594,7 @@
             }
         }
 
-        // Collecte données + synthèse IA (commun au PDF et au partage WhatsApp)
+        // Collecte données + synthèse IA (pour le PDF)
         async function collecterRapport(type) {
             let d;
             if (type === 'jour') d = await api('getRapportJour');
@@ -1595,70 +1628,6 @@
                 setBtn('');
             }
         }
-
-        /* ---- Partage d'un rapport par WhatsApp ---- */
-        let partageTypeRapport = null;
-        function partagerRapport(type) {
-            partageTypeRapport = type;
-            document.getElementById('wa-tel').value = '';
-            document.getElementById('wa-err').classList.add('hidden');
-            toggleModal('modal-partage', true);
-        }
-
-        async function rapportVersBlob(d, synthese) {
-            const element = construireRapportElement(d, synthese);
-            element.style.position = 'fixed';
-            element.style.left = '-10000px';
-            element.style.top = '0';
-            document.body.appendChild(element);
-            const opt = { margin: [0.5, 0.5, 0.6, 0.5], html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } };
-            try { return await html2pdf().set(opt).from(element).outputPdf('blob'); }
-            finally { element.remove(); }
-        }
-
-        document.getElementById('wa-envoyer').onclick = async () => {
-            const num = telWhatsApp(document.getElementById('wa-tel').value);
-            const errP = document.getElementById('wa-err');
-            errP.classList.add('hidden');
-            if (!num || num.length < 11) {
-                errP.innerText = 'Numéro invalide — ex : 07 00 00 00 00';
-                errP.classList.remove('hidden');
-                return;
-            }
-            const btn = document.getElementById('wa-envoyer');
-            const original = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Génération…';
-            lucide.createIcons();
-            try {
-                const donnees = await collecterRapport(partageTypeRapport);
-                if (!donnees) throw new Error('rapport');
-                btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Mise en ligne…';
-                lucide.createIcons();
-                const blob = await rapportVersBlob(donnees.d, donnees.synthese);
-                const dataUri = await blobEnDataUri(blob);
-                const nomF = 'Rapport_' + (window.assocData.nom || 'MUTASSO').replace(/\W+/g, '_') + '_' + Date.now() + '.pdf';
-                const url = await api('uploadFileToDrive', dataUri, nomF);
-                if (String(url).startsWith('Erreur')) throw new Error('upload');
-                const lien = location.origin + url;
-                const assoc = (window.assocData.nom || "L'association").toUpperCase();
-                const intitule = donnees.d.type === 'jour' ? 'à ce jour' : 'sur la période ' + donnees.d.debut + ' — ' + donnees.d.fin;
-                ouvrirWhatsApp(num,
-                    `Bonjour,\n\n` +
-                    `Voici le rapport de gestion ${intitule} de ${assoc} :\n\n` +
-                    `📄 Rapport complet (PDF) : ${lien}\n\n` +
-                    `Cordialement,\nLe Bureau de ${assoc}`);
-                toggleModal('modal-partage', false);
-                showToast("WhatsApp ouvert — le message est prêt à envoyer !");
-            } catch (e) {
-                console.error(e);
-                errP.innerText = 'Échec de la préparation. Réessayez dans un instant.';
-                errP.classList.remove('hidden');
-            }
-            btn.disabled = false;
-            btn.innerHTML = original;
-            lucide.createIcons();
-        };
 
         function telechargerRapportPDF(d, synthese) {
             const auj = new Date();
@@ -1819,69 +1788,6 @@
             html2pdf().set(opt).from(element).save().then(() => { recacher(); showToast("Reçu PDF généré !"); }, () => { recacher(); showToast("Échec de génération du reçu", 'error'); });
         }
 
-        /* ============ WHATSAPP (reçus et rapports) ============ */
-        const WA_ICONE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>';
-        ['wa-svg-slot-1', 'wa-svg-slot-2', 'wa-svg-slot-acces', 'wa-modal-ic'].forEach(id => { const e = document.getElementById(id); if (e) e.innerHTML = WA_ICONE; });
-
-        // Normalise un contact ivoirien/international en numéro wa.me
-        function telWhatsApp(contact) {
-            const d = String(contact || '').replace(/\D/g, '');
-            if (!d) return '';
-            if (d.startsWith('225')) return d;
-            if (d.length === 10 || d.length === 8) return '225' + d; // formats CI (07/05/01…)
-            return d;
-        }
-
-        function ouvrirWhatsApp(numero, message) {
-            window.open('https://wa.me/' + numero + '?text=' + encodeURIComponent(message), '_blank');
-        }
-
-        function blobEnDataUri(blob) {
-            return new Promise((res, rej) => {
-                const r = new FileReader();
-                r.onload = () => res(r.result);
-                r.onerror = rej;
-                r.readAsDataURL(blob);
-            });
-        }
-
-        // Reçu en Blob PDF (sans le télécharger)
-        async function recuVersBlob(nom, motif, montant, date) {
-            remplirRecu(nom, motif, montant, date);
-            const element = document.getElementById('receipt-content');
-            element.parentElement.classList.remove('hidden');
-            const opt = { margin: 0, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'px', format: [794, 1123], orientation: 'portrait' }, pagebreak: { avoid: 'all' } };
-            try { return await html2pdf().set(opt).from(element).outputPdf('blob'); }
-            finally { element.parentElement.classList.add('hidden'); }
-        }
-
-        async function envoyerRecuWhatsApp(nom, contact, motif, montant, date) {
-            const num = telWhatsApp(contact);
-            if (!num || num.length < 11) { showToast("Numéro WhatsApp manquant pour ce membre (vérifiez sa fiche).", 'error'); return; }
-            showToast("Préparation du reçu…");
-            try {
-                const blob = await recuVersBlob(nom, motif, montant, date);
-                const dataUri = await blobEnDataUri(blob);
-                const nomF = `Recu_${nom.replace(/\W+/g, '_')}_${date.replace(/\//g, '')}_${Date.now()}.pdf`;
-                const url = await api('uploadFileToDrive', dataUri, nomF);
-                if (String(url).startsWith('Erreur')) { showToast("Impossible d'héberger le reçu.", 'error'); return; }
-                const lien = location.origin + url;
-                const assoc = (window.assocData.nom || "L'association").toUpperCase();
-                ouvrirWhatsApp(num,
-                    `Bonjour ${nom},\n\n` +
-                    `${assoc} accuse réception de votre cotisation :\n\n` +
-                    `• Objet : ${motif}\n` +
-                    `• Montant : ${parseInt(montant).toLocaleString('fr-FR')} FCFA\n` +
-                    `• Reçu le : ${date}\n\n` +
-                    `📄 Reçu officiel (PDF) : ${lien}\n\n` +
-                    `Merci pour votre engagement !\n${assoc}`);
-                showToast("WhatsApp ouvert — le message est prêt à envoyer !");
-            } catch (e) {
-                console.error(e);
-                showToast("Échec de la préparation du reçu.", 'error');
-            }
-        }
-
         /* ============ EXPORT CSV ============ */
         function exportCSV(tableId, filename) {
             let csv = []; const rows = document.querySelectorAll(`#${tableId} tr`);
@@ -1994,23 +1900,6 @@
             });
         }
 
-        // Envoi du mot de passe généré au membre via WhatsApp
-        function envoyerAccesWhatsApp() {
-            const m = window.dernierAccesGenere;
-            if (!m) { showToast('Générez d\'abord un mot de passe.', 'error'); return; }
-            const num = telWhatsApp(m.contact);
-            if (!num || num.length < 11) { showToast("Numéro WhatsApp manquant pour ce membre (vérifiez sa fiche).", 'error'); return; }
-            const assoc = (window.assocData.nom || "L'association").toUpperCase();
-            ouvrirWhatsApp(num,
-                `Bonjour ${m.prenom} ${m.nom},\n\n` +
-                `Voici vos accès à votre espace membre ${assoc} sur MUTASSO :\n\n` +
-                `• Email : ${m.email}\n` +
-                `• Mot de passe : ${m.mdp}\n\n` +
-                `Connectez-vous puis changez ce mot de passe depuis Paramètres.\n\n` +
-                `Cordialement,\n${assoc}`);
-            showToast("WhatsApp ouvert — le message est prêt à envoyer !");
-        }
-
         document.getElementById('form-acces-membre').onsubmit = (e) => {
             e.preventDefault();
             const id = document.getElementById('acces-membre-select').value;
@@ -2018,7 +1907,6 @@
             api('genererMdpMembre', id).then(r => {
                 if (r.status === 'error') { showToast(r.msg, 'error'); return; }
                 // Affiché UNE seule fois : à communiquer au membre
-                window.dernierAccesGenere = { ...r, contact: (listMembres.find(m => m.id === id) || {}).contact };
                 document.getElementById('acces-m-nom').innerText = r.prenom + ' ' + r.nom;
                 document.getElementById('acces-m-mdp').innerText = r.mdp;
                 document.getElementById('acces-m-email').innerText = r.email;
@@ -2064,7 +1952,7 @@
                     <td class="t-name">${esc(r.nom)}</td>
                     <td><span class="pill periode-pill"><i data-lucide="calendar" class="w-3 h-3"></i>${esc(r.periode)}</span></td>
                     <td class="td-amount td-in">${fmt(r.montant)} F</td>
-                    <td class="text-right !pr-8"><div class="flex gap-1.5 justify-end"><button onclick="generateReceipt('${esc(r.nom)}', 'Mensualité: ${esc(r.periode)}', ${r.montant}, '${esc(r.date)}')" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button><button onclick="envoyerRecuWhatsApp('${esc(r.nom)}', '${esc(r.contact || '')}', 'Mensualité ${esc(r.periode)}', ${r.montant}, '${esc(r.date)}')" class="wa-btn" title="Envoyer le reçu par WhatsApp">${WA_ICONE}</button></div></td>
+                    <td class="text-right !pr-8"><div class="flex gap-1.5 justify-end"><button onclick="generateReceipt('${esc(r.nom)}', 'Mensualité: ${esc(r.periode)}', ${r.montant}, '${esc(r.date)}')" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button></div></td>
                 </tr>`).join('') : emptyRow(4, 'Aucun paiement trouvé');
                 lucide.createIcons();
             }).catch(console.error);
@@ -2085,7 +1973,7 @@
                     <td class="t-name">${esc(r.nom)}</td>
                     <td><span class="pill motif-pill"><i data-lucide="star" class="w-3 h-3"></i>${esc(r.motif)}</span></td>
                     <td class="td-amount td-viol">${fmt(r.montant)} F</td>
-                    <td class="text-right !pr-8"><div class="flex gap-1.5 justify-end"><button onclick="generateReceipt('${esc(r.nom)}', 'Spéciale: ${esc(r.motif)}', ${r.montant}, '${esc(r.date)}')" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button><button onclick="envoyerRecuWhatsApp('${esc(r.nom)}', '${esc(r.contact || '')}', 'Cotisation spéciale ${esc(r.motif)}', ${r.montant}, '${esc(r.date)}')" class="wa-btn" title="Envoyer le reçu par WhatsApp">${WA_ICONE}</button></div></td>
+                    <td class="text-right !pr-8"><div class="flex gap-1.5 justify-end"><button onclick="generateReceipt('${esc(r.nom)}', 'Spéciale: ${esc(r.motif)}', ${r.montant}, '${esc(r.date)}')" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button></div></td>
                 </tr>`).join('') : emptyRow(4, 'Aucune cotisation trouvée');
                 lucide.createIcons();
             }).catch(console.error);
@@ -2161,8 +2049,8 @@
                     <td><p class="t-name" style="color:var(--primary)">${esc(r.objet)}</p></td>
                     <td class="text-right !pr-8"><div class="flex justify-end gap-1">
                         <a href="${esc(r.fileUrl)}" target="_blank" class="icon-btn" title="Ouvrir le PV"><i data-lucide="eye" class="w-4 h-4"></i></a>
-                        <button onclick="preRemplirReunion('${esc(r.id)}')" class="icon-btn amber" title="Modifier"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
-                        <button onclick="askConfirm('Supprimer ce PV ?', () => supprimerReunion('${esc(r.id)}'))" class="icon-btn red" title="Supprimer"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        <button onclick="preRemplirReunion('${esc(r.id)}')" class="icon-btn amber admin-only" title="Modifier"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                        <button onclick="askConfirm('Supprimer ce PV ?', () => supprimerReunion('${esc(r.id)}'))" class="icon-btn red admin-only" title="Supprimer"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </div></td>
                 </tr>`).join('') : emptyRow(3, 'Aucune réunion archivée');
                 lucide.createIcons();

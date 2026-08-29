@@ -7,7 +7,7 @@
 //  - Ressources statiques : cache d'abord + mise à jour en arrière-plan
 //  - API /api/* : toujours réseau (données à jour), jamais caché
 // ============================================================
-const CACHE = 'mutasso-v2';
+const CACHE = 'mutasso-v3';
 
 const SHELL = [
   '/',
@@ -90,5 +90,33 @@ self.addEventListener('fetch', (event) => {
     const rep = await majArrierePlan;
     if (rep) return rep;
     return new Response('', { status: 504, statusText: 'Hors ligne' });
+  })());
+});
+
+/* ============ NOTIFICATIONS PUSH ============ */
+// Réception d'une notification émise par le serveur (VAPID)
+self.addEventListener('push', (event) => {
+  let donnees = {};
+  try { donnees = event.data ? event.data.json() : {}; }
+  catch (e) { donnees = { title: 'MUTASSO', body: event.data ? event.data.text() : '' }; }
+  event.waitUntil(self.registration.showNotification(donnees.title || 'MUTASSO', {
+    body: donnees.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: donnees.tag || 'mutasso',
+    data: { url: donnees.url || '/' }
+  }));
+});
+
+// Clic sur la notification : ouvre (ou focalise) l'application
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil((async () => {
+    const fenetres = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const f of fenetres) {
+      if ('focus' in f) { f.navigate(url).catch(() => {}); return f.focus(); }
+    }
+    return self.clients.openWindow(url);
   })());
 });

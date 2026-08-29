@@ -24,7 +24,11 @@ const config = {
   DATABASE_URL: process.env.DATABASE_URL || '',
   DB_SSL: String(process.env.DB_SSL || 'true') === 'true',
   // Clé Gemini : variable d'environnement en production
-  GEMINI_API_KEY: process.env.GEMINI_API_KEY || ''
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  // Notifications push (Web Push / VAPID)
+  VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || '',
+  VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || '',
+  VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:contact@mutasso.app'
 };
 
 config.MODE_PG = !!config.DATABASE_URL;

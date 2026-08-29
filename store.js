@@ -44,6 +44,18 @@ async function initStore() {
       contenu TEXT NOT NULL,
       PRIMARY KEY (compte_id, nom)
     );
+    CREATE TABLE IF NOT EXISTS abonnements_push (
+      id SERIAL PRIMARY KEY,
+      compte_id TEXT NOT NULL,
+      endpoint TEXT NOT NULL,
+      cles JSONB NOT NULL,
+      cree_le TEXT,
+      UNIQUE (compte_id, endpoint)
+    );
+    CREATE TABLE IF NOT EXISTS parametres (
+      cle TEXT PRIMARY KEY,
+      valeur TEXT NOT NULL
+    );
   `);
   const r = await pool.query('SELECT COUNT(*)::int AS n FROM comptes');
   console.log('Base PostgreSQL connectée (' + r.rows[0].n + ' compte(s) enregistré(s)).');
@@ -106,4 +118,36 @@ async function pgLireFichier(compteId, nom) {
   return r.rows.length ? r.rows[0].contenu : null;
 }
 
-module.exports = { initStore, fermerStore, pgLireRegistre, pgSauverRegistre, pgLireClasseur, pgEcrireClasseur, pgEnregistrerFichier, pgLireFichier };
+/* ============ Abonnements push (notifications) ============ */
+async function pgAjouterAbonnementPush(compteId, endpoint, cles) {
+  await pool.query(
+    `INSERT INTO abonnements_push (compte_id, endpoint, cles, cree_le) VALUES ($1, $2, $3, $4)
+     ON CONFLICT (compte_id, endpoint) DO UPDATE SET cles = EXCLUDED.cles`,
+    [compteId, endpoint, JSON.stringify(cles), new Date().toISOString()]
+  );
+}
+
+async function pgListerAbonnementsPush(compteId) {
+  const r = await pool.query('SELECT endpoint, cles FROM abonnements_push WHERE compte_id = $1', [compteId]);
+  return r.rows.map(l => ({ endpoint: l.endpoint, keys: l.cles }));
+}
+
+async function pgSupprimerAbonnementPush(endpoint) {
+  await pool.query('DELETE FROM abonnements_push WHERE endpoint = $1', [endpoint]);
+}
+
+/* ============ Paramètres globaux (clés VAPID, etc.) ============ */
+async function pgLireParam(cle) {
+  const r = await pool.query('SELECT valeur FROM parametres WHERE cle = $1', [cle]);
+  return r.rows.length ? r.rows[0].valeur : null;
+}
+
+async function pgEcrireParam(cle, valeur) {
+  await pool.query(
+    `INSERT INTO parametres (cle, valeur) VALUES ($1, $2)
+     ON CONFLICT (cle) DO UPDATE SET valeur = EXCLUDED.valeur`,
+    [cle, valeur]
+  );
+}
+
+module.exports = { initStore, fermerStore, pgLireRegistre, pgSauverRegistre, pgLireClasseur, pgEcrireClasseur, pgEnregistrerFichier, pgLireFichier, pgAjouterAbonnementPush, pgListerAbonnementsPush, pgSupprimerAbonnementPush, pgLireParam, pgEcrireParam };

@@ -92,6 +92,9 @@ app.post('/api/:fn', async (req, res) => {
   try {
     const etat = await store.initStore();
     console.log('MUTASSO PRO v6.2 — stockage : ' + etat.mode);
+    // Prépare les clés VAPID (générées/persistées au 1er démarrage)
+    const push = require('./push');
+    await push.initialiser().catch(() => {});
     app.listen(config.PORT, '0.0.0.0', () => {
       console.log('MUTASSO PRO v6.2 -> http://localhost:' + config.PORT);
     });

@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const { ouvrirClasseur, lireRegistre, ajouterAuRegistre, majEntreeRegistre, tablesDuClasseur } = require('./sheets');
 const config = require('./config');
 const store = require('./store');
+const push = require('./push');
 
 // --- Constantes (ex-configuration.gs) ---
 const SHEET_MEMBRES = "MEMBRES";
@@ -347,6 +348,19 @@ function majMotDePasseMembre(ancien, nouveau) {
   return { status: "success", msg: "Mot de passe mis à jour !", token: tokenMembrePour(compteActif.id, accesMembre.id, nh.hash) };
 }
 
+/* ============================================================
+// NOTIFICATIONS PUSH (Web Push / VAPID)
+//   - l'appareil demande la clé publique puis s'abonne
+//   - les événements (cotisation exceptionnelle…) notifient
+//     tous les appareils abonnés de l'association
+// ============================================================ */
+async function clePubliquePush() { return push.clePublique(); }
+
+async function abonnerPush(subscription) {
+  if (!compteActif) return { status: "error", msg: "Aucun compte actif." };
+  return push.abonner(subscription, compteActif.id);
+}
+
 function getMembres() { const s = SS.getSheetByName(SHEET_MEMBRES); const v = s.getDataRange().getValues(); return v.length <= 1 ? [] : v.slice(1).filter(r => r[0] !== "").map(row => ({ id: row[0].toString(), nom: row[1].toString(), prenom: row[2].toString(), contact: row[3].toString(), ville: row[4].toString(), sexe: row[5].toString() })); }
 
 function getDashboardStats() {
@@ -430,7 +444,7 @@ function supprimerReunion(id) {
   }
 }
 
-// Contacts des membres indexés par identifiant (pour l'envoi WhatsApp)
+// Contacts des membres indexés par identifiant
 function contactsParId() {
   const s = SS.getSheetByName(SHEET_MEMBRES);
   const map = {};
@@ -491,7 +505,17 @@ function modifierMembre(d) {
 function enregistrerMensuel(d) { SS.getSheetByName(SHEET_MENSUEL).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.mois, d.annee, d.montant, new Date().toLocaleDateString('fr-FR'), d.typeCotis]); return {status:"success", msg:"Paiement enregistré !"};
 }
 
-function enregistrerExcep(d) { SS.getSheetByName(SHEET_EXCEP).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.motif.toUpperCase(), d.montant, new Date().toLocaleDateString('fr-FR')]); return {status:"success", msg:"Cotisation enregistrée !"};
+function enregistrerExcep(d) {
+  SS.getSheetByName(SHEET_EXCEP).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.motif.toUpperCase(), d.montant, new Date().toLocaleDateString('fr-FR')]);
+  // Notification push : tous les appareils de l'association sont prévenus
+  if (compteActif) {
+    const nomAssoc = (getAssocInfos().nom || "L'association");
+    push.notifierTous(compteActif.id,
+      'Nouvelle cotisation exceptionnelle',
+      `${nomAssoc} : ${d.motif.toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA enregistrée(s).`)
+      .catch(() => {});
+  }
+  return {status:"success", msg:"Cotisation enregistrée !"};
 }
 
 function enregistrerDepense(d) { SS.getSheetByName(SHEET_DEPENSES).appendRow([d.motif.toUpperCase(), d.beneficiaire, d.montant, new Date().toLocaleDateString('fr-FR')]); return {status:"success", msg:"Sortie validée !"}; }
@@ -821,5 +845,6 @@ module.exports = {
   genererPV_IA, testAutorisationIA, initialiserMUTASSO, seedDefaults,
   getRapportJour, getRapportPeriode, genererRapportIA,
   compteExiste, creerCompte, connexion, verifierToken, verifierSession, activerCompte, infosCompte, majIdentite, majMotDePasse,
-  genererMdpMembre, supprimerAccesMembre, majMotDePasseMembre, idsAccesMembres
+  genererMdpMembre, supprimerAccesMembre, majMotDePasseMembre, idsAccesMembres,
+  clePubliquePush, abonnerPush
 };
