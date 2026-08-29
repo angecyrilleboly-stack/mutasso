@@ -1529,6 +1529,8 @@
                     api('getEtatPaiements', 'mensuel', MOIS[m], String(y))
                 ]);
 
+                listMembres = membres;
+
                 // Espace membre : le taux de recouvrement affiché se
                 // limite à SA situation (payé / impayé ce mois-ci).
                 let etatAffiche = etat;
@@ -2440,11 +2442,21 @@ ${formuleLevee}</div>
             return true;
         }
 
-        function openModalPaiement(t) {
+        // Garantit que la liste des membres est chargée avant
+        // d'alimenter un menu déroulant (Encaisser, Nommer…)
+        async function assurerListeMembres() {
+            if (!listMembres.length) {
+                try { listMembres = await api('getMembres'); } catch (e) { console.error(e); }
+            }
+            return listMembres;
+        }
+
+        async function openModalPaiement(t) {
             if (!adminSeulement()) return;
             const sId = t === 'mensuel' ? 'select-m-membres' : 'select-e-membres';
             toggleModal('modal-' + t, true);
-            document.getElementById(sId).innerHTML = listMembres.map(m => `<option value="${esc(m.id)}|${esc(m.nom)} ${esc(m.prenom)}">${esc(m.nom)} ${esc(m.prenom)}</option>`).join('');
+            const membres = await assurerListeMembres();
+            document.getElementById(sId).innerHTML = membres.map(m => `<option value="${esc(m.id)}|${esc(m.nom)} ${esc(m.prenom)}">${esc(m.nom)} ${esc(m.prenom)}</option>`).join('');
             if (t === 'mensuel') {
                 // Mensualité unique : montant verrouillé, défini dans la page Mensualités
                 const champ = document.getElementById('m-montant');
@@ -2459,14 +2471,15 @@ ${formuleLevee}</div>
             }
         }
 
-        function openNomination() {
+        async function openNomination() {
             if (!adminSeulement()) return;
             toggleModal('modal-nomination', true);
+            const membres = await assurerListeMembres();
             api('getPostes').then(p => {
                 document.getElementById('select-postes').innerHTML = p.length
                     ? p.map(x => `<option value="${esc(x.label)}">${esc(x.label)}</option>`).join('')
                     : '<option value="">— Aucun poste créé —</option>';
-                document.getElementById('select-membres').innerHTML = listMembres.map(m => `<option value="${esc(m.id)}|${esc(m.nom)} ${esc(m.prenom)}">${esc(m.nom)} ${esc(m.prenom)}</option>`).join('');
+                document.getElementById('select-membres').innerHTML = membres.map(m => `<option value="${esc(m.id)}|${esc(m.nom)} ${esc(m.prenom)}">${esc(m.nom)} ${esc(m.prenom)}</option>`).join('');
             }).catch(console.error);
         }
 
