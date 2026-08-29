@@ -26,7 +26,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // Sonde de santé (utilisée par Render)
-app.get('/api/health', (req, res) => res.json({ ok: true, mode: config.MODE_PG ? 'postgres' : 'fichiers', v: 'v63nocache' }));
+app.get('/api/health', (req, res) => res.json({ ok: true, mode: config.MODE_PG ? 'postgres' : 'fichiers' }));
 
 // PV PDF stockés en base (mode PostgreSQL) — /fichiers/<compte>/<nom>
 app.get('/fichiers/:compte/:nom', async (req, res) => {
@@ -43,7 +43,7 @@ app.get('/fichiers/:compte/:nom', async (req, res) => {
 
 // Pont google.script.run -> fonctions du backend (voir public/gas-bridge.js)
 // Ces fonctions sont accessibles sans être connecté :
-const FNS_PUBLIQUES = new Set(['compteExiste', 'creerCompte', 'connexion', 'debugCompte', 'resetMdp']);
+const FNS_PUBLIQUES = new Set(['compteExiste', 'creerCompte', 'connexion']);
 app.post('/api/:fn', async (req, res) => {
   const fn = backend[req.params.fn];
   if (typeof fn !== 'function') {
@@ -72,28 +72,6 @@ app.post('/api/:fn', async (req, res) => {
 
 // Départ : connexion à la base si configurée, puis écoute
 
-// TEMPORAIRE
-app.get('/api/debug-login', async (req, res) => {
-  try {
-    const crypto = require('crypto');
-    const r = await store.pgLireRegistre();
-    const c = r.find(x => x.email === 'angecyrilleboly@gmail.com');
-    if (!c) return res.json({err:'not found', n: r.length, emails: r.map(x=>x.email)});
-    const h = crypto.scryptSync(String('Cyrille@edi20'), c.salt, 32).toString('hex');
-    res.json({ salt_len: c.salt.length, salt_pfx: c.salt.substring(0,16), db_pfx: c.hash.substring(0,16), calc_pfx: h.substring(0,16), match: h === c.hash, node: process.version });
-  } catch(e) { res.json({err: e.message}); }
-});
-
-
-app.get('/api/debug-lire', async (req, res) => {
-  try {
-    const { lireRegistre } = require('./sheets');
-    const r = await lireRegistre();
-    const c = r.find(x => x.email === 'angecyrilleboly@gmail.com');
-    if (!c) return res.json({err:'not found via lireRegistre', n: r.length, emails: r.map(x=>x.email)});
-    res.json({ found: true, salt_pfx: c.salt.substring(0,16), hash_pfx: c.hash.substring(0,16) });
-  } catch(e) { res.json({err: e.message, stack: e.stack}); }
-});
 (async () => {
   try {
     const etat = await store.initStore();

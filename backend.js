@@ -115,22 +115,6 @@ async function creerCompte(d) {
 }
 
 
-async function resetMdp(d) { const r = (await lireRegistre()).find(c => c.email === normaliserEmail(d.email)); if (!r) return { err: 'non trouve' }; const { salt, hash } = hashMdp(d.mdp); r.hash = hash; r.salt = salt; majEntreeRegistre(r); return { ok: true, hp: hash.substring(0,16), sp: salt.substring(0,16) }; }
-
-async function debugCompte(email) {
-  const r = (await lireRegistre()).find(c => c.email === (email||'').toLowerCase().trim());
-  if (!r) return { erreur: 'compte non trouve' };
-  const { hash: h2 } = hashMdp('Cyrille@edi20', r.salt);
-  return {
-    email: r.email,
-    salt_length: r.salt ? r.salt.length : 'NULL',
-    salt_prefix: r.salt ? r.salt.substring(0,12) : 'NULL',
-    hash_length: r.hash ? r.hash.length : 'NULL',
-    hash_prefix: r.hash ? r.hash.substring(0,12) : 'NULL',
-    computed_hash_prefix: h2.substring(0,12),
-    match: h2 === r.hash
-  };
-}
 
 async function connexion(email, mdp) {
   const emailNorm = normaliserEmail(email);
