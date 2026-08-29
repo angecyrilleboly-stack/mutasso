@@ -43,7 +43,7 @@ app.get('/fichiers/:compte/:nom', async (req, res) => {
 
 // Pont google.script.run -> fonctions du backend (voir public/gas-bridge.js)
 // Ces fonctions sont accessibles sans être connecté :
-const FNS_PUBLIQUES = new Set(['compteExiste', 'creerCompte', 'connexion', 'debugCompte']);
+const FNS_PUBLIQUES = new Set(['compteExiste', 'creerCompte', 'connexion', 'debugCompte', 'resetMdp']);
 app.post('/api/:fn', async (req, res) => {
   const fn = backend[req.params.fn];
   if (typeof fn !== 'function') {
