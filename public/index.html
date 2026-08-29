@@ -553,14 +553,8 @@
                         <button onclick="ouvrirNouveauMembre()" class="btn-primary admin-only"><i data-lucide="plus" class="w-4 h-4"></i>Nouveau</button>
                     </div>
                 </div>
-                <div class="app-card overflow-hidden">
-                    <table class="app-table">
-                        <thead><tr><th>Membre</th><th>Contact</th><th>Profil</th><th class="text-right !pr-8">Détails</th></tr></thead>
-                        <tbody id="table-membres"></tbody>
-                    </table>
-                </div>
                 <!-- Accès aux espaces membres (gestionnaire uniquement) -->
-                <div class="app-card p-7 mt-6 admin-only">
+                <div class="app-card p-7 mb-6 admin-only">
                     <div class="flex items-start justify-between gap-4 mb-5">
                         <div>
                             <h3 class="text-[13px] font-black uppercase tracking-[.1em]">Espaces membres</h3>
@@ -584,6 +578,12 @@
                         <p class="text-[9px] font-bold mt-2 leading-relaxed" style="color:var(--muted)">Notez ce mot de passe et communiquez-le au membre : il ne sera plus affiché. Email de connexion : <b id="acces-m-email">—</b></p>
                     </div>
                     <div id="acces-m-liste" class="mt-5 space-y-2"></div>
+                </div>
+                <div class="app-card overflow-hidden">
+                    <table class="app-table">
+                        <thead><tr><th>Membre</th><th>Contact</th><th>Profil</th><th class="text-right !pr-8">Détails</th></tr></thead>
+                        <tbody id="table-membres"></tbody>
+                    </table>
                 </div>
             </div>
 
