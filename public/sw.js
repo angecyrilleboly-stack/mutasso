@@ -94,6 +94,11 @@ self.addEventListener('fetch', (event) => {
 });
 
 /* ============ NOTIFICATIONS PUSH ============ */
+// Prise de relais immédiate demandée par la page (mise à jour auto)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 // Réception d'une notification émise par le serveur (VAPID)
 self.addEventListener('push', (event) => {
   let donnees = {};

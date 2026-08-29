@@ -1312,17 +1312,33 @@
             appliquerModeMembre();
             loadExcepSearchMotifs();
             activerNotificationsPush();
-            // Permission pas encore donnée (session restaurée sans
-            // tap) : la cloche permet de l'accorder d'un geste
-            setTimeout(() => {
-                const cloche = document.getElementById('btn-notif');
-                if (cloche && 'Notification' in window && Notification.permission === 'default') cloche.classList.remove('hidden');
-            }, 800);
             showPage('dashboard');
             lucide.createIcons();
         }
 
         /* ============ NOTIFICATIONS PUSH ============ */
+        // Met à jour le service worker dès l'ouverture de l'app :
+        // les téléphones gardent sinon l'ANCIEN worker (sans
+        // gestionnaire push) jusqu'à leur prochaine navigation.
+        async function majServiceWorker() {
+            if (!('serviceWorker' in navigator)) return;
+            try {
+                const enr = await navigator.serviceWorker.register('sw.js');
+                await enr.update();
+                if (enr.waiting) enr.waiting.postMessage({ type: 'SKIP_WAITING' });
+            } catch (e) { /* offline au 1er lancement : réessaiera */ }
+        }
+        // Le nouveau worker a pris le contrôle -> un rechargement
+        // propre pour l'utiliser immédiatement (une fois par session)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!sessionStorage.getItem('sw-recharge')) {
+                    sessionStorage.setItem('sw-recharge', '1');
+                    location.reload();
+                }
+            });
+        }
+
         // Abonne CET appareil aux notifications de l'association
         // (admin comme membre) : préviendra des événements comme
         // une nouvelle cotisation exceptionnelle.
@@ -1330,7 +1346,9 @@
         // les erreurs, indispensable sur iOS (permission = geste).
         async function activerNotificationsPush(manuel) {
             const cloche = document.getElementById('btn-notif');
+            const montrerCloche = v => { if (cloche) cloche.classList.toggle('hidden', !v); };
             if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+                montrerCloche(false);
                 if (manuel) showToast('Notifications non prises en charge par ce navigateur.', 'error');
                 return;
             }
@@ -1338,25 +1356,35 @@
                 let permission = Notification.permission;
                 if (permission === 'default') permission = await Notification.requestPermission();
                 if (permission !== 'granted') {
+                    montrerCloche(true);
                     if (manuel) showToast('Notifications refusées — autorisez-les dans les réglages du navigateur.', 'error');
-                    if (cloche) cloche.classList.remove('hidden');
                     return;
                 }
                 const r = await api('clePubliquePush');
-                if (!r || !r.cle) { if (manuel) showToast('Notifications indisponibles côté serveur.', 'error'); return; }
+                if (!r || !r.cle) { montrerCloche(true); if (manuel) showToast('Notifications indisponibles côté serveur.', 'error'); return; }
                 const enr = await navigator.serviceWorker.register('sw.js');
                 await navigator.serviceWorker.ready;
-                const sub = await enr.pushManager.getSubscription() || await enr.pushManager.subscribe({
+                const dejaAbonne = await enr.pushManager.getSubscription();
+                const sub = dejaAbonne || await enr.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64VersUint8(r.cle)
                 });
                 const res = await api('abonnerPush', sub.toJSON());
                 if (res && res.status === 'success') {
-                    if (cloche) cloche.classList.add('hidden');
-                    showToast('Notifications activées sur cet appareil.');
-                } else if (manuel) showToast('Activation impossible pour le moment.', 'error');
+                    montrerCloche(false);
+                    // Test immédiat aux premières activation / demande
+                    // manuelle : la notification prouve que ça marche.
+                    if (!dejaAbonne || manuel) {
+                        await api('testPushPerso', sub.toJSON()).catch(() => {});
+                        showToast('Notifications activées — test envoyé sur cet appareil.');
+                    }
+                } else {
+                    montrerCloche(true);
+                    if (manuel) showToast('Activation impossible pour le moment.', 'error');
+                }
             } catch (e) {
                 console.error('Push non activé :', e);
+                montrerCloche(true);
                 if (manuel) showToast('Activation impossible pour le moment.', 'error');
             }
         }
@@ -2472,6 +2500,9 @@ ${formuleLevee}</div>
             const theme = localStorage.getItem('theme') || 'light';
             document.documentElement.classList.replace('light', theme);
             document.getElementById('theme-icon').setAttribute('data-lucide', theme === 'dark' ? 'sun' : 'moon');
+
+            // Met tout de suite le service worker à jour (notifications)
+            majServiceWorker();
 
             const auj = new Date();
             const dateTxt = auj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });

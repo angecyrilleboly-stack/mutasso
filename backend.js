@@ -361,6 +361,18 @@ async function abonnerPush(subscription) {
   return push.abonner(subscription, compteActif.id);
 }
 
+// Test personnel : notifie UNIQUEMENT l'appareil qui demande
+// (retour immédiat pour vérifier que les notifications marchent)
+async function testPushPerso(subscription) {
+  if (!subscription || !subscription.endpoint) return { status: "error", msg: "Abonnement invalide." };
+  const ok = await push.notifierAppareil(subscription,
+    'MUTASSO — Test réussi',
+    'Vous serez alerté des événements de l\'association (cotisations exceptionnelles…).');
+  return ok
+    ? { status: "success", msg: "Notification de test envoyée." }
+    : { status: "error", msg: "Envoi impossible — réessayez." };
+}
+
 function getMembres() { const s = SS.getSheetByName(SHEET_MEMBRES); const v = s.getDataRange().getValues(); return v.length <= 1 ? [] : v.slice(1).filter(r => r[0] !== "").map(row => ({ id: row[0].toString(), nom: row[1].toString(), prenom: row[2].toString(), contact: row[3].toString(), ville: row[4].toString(), sexe: row[5].toString() })); }
 
 function getDashboardStats() {
@@ -846,5 +858,5 @@ module.exports = {
   getRapportJour, getRapportPeriode, genererRapportIA,
   compteExiste, creerCompte, connexion, verifierToken, verifierSession, activerCompte, infosCompte, majIdentite, majMotDePasse,
   genererMdpMembre, supprimerAccesMembre, majMotDePasseMembre, idsAccesMembres,
-  clePubliquePush, abonnerPush
+  clePubliquePush, abonnerPush, testPushPerso
 };

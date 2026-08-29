@@ -101,7 +101,7 @@ async function retirer(endpoint) {
   fs.writeFileSync(PUSH_FILE, JSON.stringify(abosFichiers, null, 2));
 }
 
-// Envoie une notification à tous les appareils d'une association.
+// Envoie une notification à TOUS les appareils d'une association.
 async function notifierTous(idCompte, titre, corps) {
   if (!(await initialiser())) return { envoyees: 0 };
   const abos = await lister(idCompte);
@@ -119,4 +119,16 @@ async function notifierTous(idCompte, titre, corps) {
   return { envoyees: envoyees, total: abos.length };
 }
 
-module.exports = { initialiser, clePublique, abonner, notifierTous };
+// Envoie une notification à UN seul appareil (test personnel).
+async function notifierAppareil(subscription, titre, corps) {
+  if (!(await initialiser())) return false;
+  try {
+    await webpush.sendNotification(
+      { endpoint: subscription.endpoint, keys: subscription.keys || {} },
+      JSON.stringify({ title: titre, body: corps, tag: 'mutasso-test' })
+    );
+    return true;
+  } catch (e) { return false; }
+}
+
+module.exports = { initialiser, clePublique, abonner, notifierTous, notifierAppareil };
