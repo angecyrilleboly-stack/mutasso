@@ -84,6 +84,16 @@ app.get('/api/debug-login', async (req, res) => {
   } catch(e) { res.json({err: e.message}); }
 });
 
+
+app.get('/api/debug-lire', async (req, res) => {
+  try {
+    const { lireRegistre } = require('./sheets');
+    const r = await lireRegistre();
+    const c = r.find(x => x.email === 'angecyrilleboly@gmail.com');
+    if (!c) return res.json({err:'not found via lireRegistre', n: r.length, emails: r.map(x=>x.email)});
+    res.json({ found: true, salt_pfx: c.salt.substring(0,16), hash_pfx: c.hash.substring(0,16) });
+  } catch(e) { res.json({err: e.message, stack: e.stack}); }
+});
 (async () => {
   try {
     const etat = await store.initStore();
