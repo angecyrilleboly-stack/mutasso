@@ -71,6 +71,19 @@ app.post('/api/:fn', async (req, res) => {
 });
 
 // Départ : connexion à la base si configurée, puis écoute
+
+// TEMPORAIRE
+app.get('/api/debug-login', async (req, res) => {
+  try {
+    const crypto = require('crypto');
+    const r = await store.pgLireRegistre();
+    const c = r.find(x => x.email === 'angecyrilleboly@gmail.com');
+    if (!c) return res.json({err:'not found', n: r.length, emails: r.map(x=>x.email)});
+    const h = crypto.scryptSync(String('Cyrille@edi20'), c.salt, 32).toString('hex');
+    res.json({ salt_len: c.salt.length, salt_pfx: c.salt.substring(0,16), db_pfx: c.hash.substring(0,16), calc_pfx: h.substring(0,16), match: h === c.hash, node: process.version });
+  } catch(e) { res.json({err: e.message}); }
+});
+
 (async () => {
   try {
     const etat = await store.initStore();
