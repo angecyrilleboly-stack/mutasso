@@ -26,7 +26,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // Sonde de santé (utilisée par Render)
-app.get('/api/health', (req, res) => res.json({ ok: true, mode: config.MODE_PG ? 'postgres' : 'fichiers' }));
+app.get('/api/health', (req, res) => res.json({ ok: true, mode: config.MODE_PG ? 'postgres' : 'fichiers', v: 'v63nocache' }));
 
 // PV PDF stockés en base (mode PostgreSQL) — /fichiers/<compte>/<nom>
 app.get('/fichiers/:compte/:nom', async (req, res) => {
