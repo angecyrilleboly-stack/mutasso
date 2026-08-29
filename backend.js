@@ -530,9 +530,14 @@ function enregistrerExcep(d) {
   return {status:"success", msg:"Cotisation enregistrée !"};
 }
 
-// Sortie de caisse : objet + somme (le champ Bénéficiaire a été
-// retiré de l'interface ; la colonne reste pour l'historique).
-function enregistrerDepense(d) { SS.getSheetByName(SHEET_DEPENSES).appendRow([d.motif.toUpperCase(), "", d.montant, new Date().toLocaleDateString('fr-FR')]); return {status:"success", msg:"Sortie validée !"}; }
+// Sortie de caisse : objet + date + somme. La date saisie (format
+// input date yyyy-mm-dd) est convertie en jj/mm/aaaa, comme tout
+// l'historique ; sans date -> jour de l'enregistrement.
+function enregistrerDepense(d) {
+  const date = d.date ? formatDateFR(d.date) : new Date().toLocaleDateString('fr-FR');
+  SS.getSheetByName(SHEET_DEPENSES).appendRow([d.motif.toUpperCase(), "", d.montant, date]);
+  return {status:"success", msg:"Sortie validée !"};
+}
 
 function getTypesExcep() { const s = SS.getSheetByName(SHEET_TYPES_EXCEP);
   if (!s || s.getLastRow() <= 1) return []; return s.getDataRange().getValues().slice(1).map((r, i) => ({ id: i + 2, label: r[0].toString().toUpperCase(), montant: r[1] }));

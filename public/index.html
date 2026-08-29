@@ -778,12 +778,12 @@
                     </div>
                     <div class="flex gap-3">
                         <button onclick="exportCSV('table-depenses', 'Depenses.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
-                        <button onclick="toggleModal('modal-depense', true)" class="btn-danger admin-only"><i data-lucide="plus" class="w-4 h-4"></i>Sortie</button>
+                        <button onclick="openModalDepense()" class="btn-danger admin-only"><i data-lucide="plus" class="w-4 h-4"></i>Sortie</button>
                     </div>
                 </div>
                 <div class="app-card overflow-hidden">
                     <table class="app-table">
-                        <thead><tr><th>Objet</th><th class="text-right !pr-8">Montant (FCFA)</th></tr></thead>
+                        <thead><tr><th>Objet</th><th>Date</th><th class="text-right !pr-8">Montant (FCFA)</th></tr></thead>
                         <tbody id="table-depenses"></tbody>
                     </table>
                 </div>
@@ -1027,6 +1027,7 @@
             </div>
             <form id="form-depense" class="space-y-4">
                 <div><label class="label-style">Objet</label><input type="text" name="motif" required class="input-field uppercase"></div>
+                <div><label class="label-style">Date</label><input type="date" name="date" required class="input-field"></div>
                 <div><label class="label-style">Somme (FCFA)</label><input type="number" name="montant" required class="input-field text-xl font-black" style="color:var(--out)"></div>
                 <div class="flex gap-3 pt-4">
                     <button type="submit" class="btn-danger flex-1 justify-center">Valider</button>
@@ -2009,9 +2010,10 @@
         function loadDepenses() {
             api('getDepenses').then(d => {
                 document.getElementById('table-depenses').innerHTML = d.length ? d.map(r => `<tr>
-                    <td><p class="t-name">${esc(r.motif)}</p><p class="t-sub">${esc(r.date || '')}</p></td>
+                    <td><p class="t-name">${esc(r.motif)}</p></td>
+                    <td><span class="date-pill"><i data-lucide="calendar" class="w-3 h-3"></i>${esc(r.date || '')}</span></td>
                     <td class="td-amount td-out !pr-8">−${fmt(r.montant)} FCFA</td>
-                </tr>`).join('') : emptyRow(2, 'Aucune dépense enregistrée');
+                </tr>`).join('') : emptyRow(3, 'Aucune dépense enregistrée');
                 lucide.createIcons();
             }).catch(console.error);
         }
@@ -2366,9 +2368,19 @@ ${formuleLevee}</div>
 
         document.getElementById('form-depense').onsubmit = (e) => {
             e.preventDefault();
-            api('enregistrerDepense', { motif: e.target.motif.value, montant: e.target.montant.value })
+            api('enregistrerDepense', { motif: e.target.motif.value, montant: e.target.montant.value, date: e.target.date.value })
                 .then(r => { showToast(r.msg); toggleModal('modal-depense', false); e.target.reset(); loadDepenses(); loadStats(); }).catch(console.error);
         };
+
+        // Ouvre le modal Sortie avec la date du jour préremplie
+        function openModalDepense() {
+            if (!adminSeulement()) return;
+            const f = document.getElementById('form-depense');
+            f.reset();
+            const d = new Date();
+            f.date.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            toggleModal('modal-depense', true);
+        }
 
         document.getElementById('form-membre').onsubmit = (e) => {
             e.preventDefault();
