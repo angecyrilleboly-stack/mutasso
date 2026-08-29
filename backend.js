@@ -114,6 +114,22 @@ async function creerCompte(d) {
   return { status: "success", msg: "Compte créé ! Votre espace est prêt.", token: tokenPour(entree), infos: infosPubliques(entree) };
 }
 
+
+async function debugCompte(email) {
+  const r = (await lireRegistre()).find(c => c.email === (email||'').toLowerCase().trim());
+  if (!r) return { erreur: 'compte non trouve' };
+  const { hash: h2 } = hashMdp('Cyrille@edi20', r.salt);
+  return {
+    email: r.email,
+    salt_length: r.salt ? r.salt.length : 'NULL',
+    salt_prefix: r.salt ? r.salt.substring(0,12) : 'NULL',
+    hash_length: r.hash ? r.hash.length : 'NULL',
+    hash_prefix: r.hash ? r.hash.substring(0,12) : 'NULL',
+    computed_hash_prefix: h2.substring(0,12),
+    match: h2 === r.hash
+  };
+}
+
 async function connexion(email, mdp) {
   const emailNorm = normaliserEmail(email);
   const etat = tentativesConnexion[emailNorm];
@@ -271,13 +287,25 @@ function supprimerReunion(id) {
   }
 }
 
+// Contacts des membres indexés par identifiant (pour l'envoi WhatsApp)
+function contactsParId() {
+  const s = SS.getSheetByName(SHEET_MEMBRES);
+  const map = {};
+  if (!s || s.getLastRow() <= 1) return map;
+  s.getDataRange().getValues().slice(1).forEach(r => { map[String(r[0])] = String(r[3] || ''); });
+  return map;
+}
+
 function getMensuels(m, a) { const s = SS.getSheetByName(SHEET_MENSUEL); if (s.getLastRow() <= 1) return []; let d = s.getDataRange().getValues().slice(1).reverse();
   if (m) d = d.filter(r => r[2] === m); if (a) d = d.filter(r => r[3].toString() === a.toString());
-  return d.map(r => ({ nom: r[1], periode: r[2]+" "+r[3], montant: r[4], date: r[5] instanceof Date ? r[5].toLocaleDateString('fr-FR') : r[5] }));
+  const contacts = contactsParId();
+  return d.map(r => ({ nom: r[1], periode: r[2]+" "+r[3], montant: r[4], date: r[5] instanceof Date ? r[5].toLocaleDateString('fr-FR') : r[5], contact: contacts[String(r[0])] || '' }));
 }
 
 function getExceps(m) { const s = SS.getSheetByName(SHEET_EXCEP); if (s.getLastRow() <= 1) return []; let d = s.getDataRange().getValues().slice(1).reverse();
-  if (m) d = d.filter(r => r[2].toString().toUpperCase() === m.toUpperCase()); return d.map(r => ({ nom: r[1], motif: r[2], montant: r[3], date: r[4] instanceof Date ? r[4].toLocaleDateString('fr-FR') : r[4] }));
+  if (m) d = d.filter(r => r[2].toString().toUpperCase() === m.toUpperCase());
+  const contacts = contactsParId();
+  return d.map(r => ({ nom: r[1], motif: r[2], montant: r[3], date: r[4] instanceof Date ? r[4].toLocaleDateString('fr-FR') : r[4], contact: contacts[String(r[0])] || '' }));
 }
 
 function getDepenses() { const s = SS.getSheetByName(SHEET_DEPENSES); if (s.getLastRow() <= 1) return [];
