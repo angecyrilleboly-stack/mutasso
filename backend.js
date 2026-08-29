@@ -301,6 +301,33 @@ function getDepenses() { const s = SS.getSheetByName(SHEET_DEPENSES); if (s.getL
 function ajouterMembre(d) { SS.getSheetByName(SHEET_MEMBRES).appendRow(["M-"+Math.floor(Math.random()*9000+1000), d.nom.toUpperCase(), d.prenom, d.contact, d.ville, d.sexe]); return {status:"success", msg:"Membre ajouté !"};
 }
 
+// Corrige les informations d'un membre existant (identifié par son ID).
+// Le nom est aussi répercuté dans les feuilles de cotisations pour
+// que les historiques restent cohérents.
+function modifierMembre(d) {
+  if (!d.id) return { status: "error", msg: "Membre introuvable." };
+  if (!d.nom || !d.prenom || !d.contact) return { status: "error", msg: "Nom, prénom et contact obligatoires." };
+  const s = SS.getSheetByName(SHEET_MEMBRES);
+  const valeurs = s.getDataRange().getValues();
+  const ligne = valeurs.findIndex((r, i) => i > 0 && r[0] && r[0].toString() === d.id);
+  if (ligne < 0) return { status: "error", msg: "Membre introuvable." };
+  const ancienNom = valeurs[ligne][1] ? valeurs[ligne][1].toString() : "";
+  s.getRange(ligne + 1, 1, 1, 6).setValues([[d.id, d.nom.toUpperCase(), d.prenom, d.contact, d.ville || "", d.sexe || "M"]]);
+  // Met à jour le nom affiché dans les historiques de cotisations
+  const nouveauNom = d.nom.toUpperCase();
+  [[SHEET_MENSUEL, 1], [SHEET_EXCEP, 1]].forEach(([feuille, colNom]) => {
+    const f = SS.getSheetByName(feuille);
+    if (!f || f.getLastRow() <= 1) return;
+    const vals = f.getDataRange().getValues();
+    for (let i = 1; i < vals.length; i++) {
+      if (vals[i][0] && vals[i][0].toString() === d.id && vals[i][colNom] !== nouveauNom) {
+        f.getRange(i + 1, colNom + 1, 1, 1).setValues([[nouveauNom]]);
+      }
+    }
+  });
+  return { status: "success", msg: "Informations de " + ancienNom + " mises à jour !" };
+}
+
 function enregistrerMensuel(d) { SS.getSheetByName(SHEET_MENSUEL).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.mois, d.annee, d.montant, new Date().toLocaleDateString('fr-FR'), d.typeCotis]); return {status:"success", msg:"Paiement enregistré !"};
 }
 
@@ -627,7 +654,7 @@ function seedDefaults() {
 module.exports = {
   getMembres, getDashboardStats, getChartData, getEtatPaiements, getMembreProfile,
   getReunions, enregistrerReunion, supprimerReunion, getMensuels, getExceps, getDepenses,
-  ajouterMembre, enregistrerMensuel, enregistrerExcep, enregistrerDepense,
+  ajouterMembre, modifierMembre, enregistrerMensuel, enregistrerExcep, enregistrerDepense,
   getTypesExcep, enregistrerTypeExcep, getTypesMensuels, enregistrerTypeMensuel, getMensualiteConfig, majMontantMensualite,
   getAssocInfos, saveAssocInfos, getBureau, getPostes, nommerMembre, enregistrerPoste, supprimerPoste,
   supprimerTypeExcep, supprimerTypeMensuel, uploadFileToDrive, autoriserDrive,
