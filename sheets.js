@@ -22,7 +22,7 @@ let registre = null;           // cache mémoire
 let registreSale = false;
 
 async function lireRegistre() {
-  if (registre) return registre;
+  // Force une nouvelle lecture depuis la base pour les comptes modifiés
   if (config.MODE_PG) {
     registre = await store.pgLireRegistre();
   } else {
