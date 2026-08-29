@@ -519,12 +519,13 @@ function enregistrerMensuel(d) { SS.getSheetByName(SHEET_MENSUEL).appendRow([d.i
 
 function enregistrerExcep(d) {
   SS.getSheetByName(SHEET_EXCEP).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.motif.toUpperCase(), d.montant, new Date().toLocaleDateString('fr-FR')]);
-  // Notification push : tous les appareils de l'association sont prévenus
+  // Notification push : tous les appareils de l'association sont
+  // prévenus (nom de la cotisation + montant).
   if (compteActif) {
     const nomAssoc = (getAssocInfos().nom || "L'association");
     push.notifierTous(compteActif.id,
       'Nouvelle cotisation exceptionnelle',
-      `${nomAssoc} : ${d.motif.toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA enregistrée(s).`)
+      `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
       .catch(() => {});
   }
   return {status:"success", msg:"Cotisation enregistrée !"};
@@ -536,6 +537,15 @@ function enregistrerExcep(d) {
 function enregistrerDepense(d) {
   const date = d.date ? formatDateFR(d.date) : new Date().toLocaleDateString('fr-FR');
   SS.getSheetByName(SHEET_DEPENSES).appendRow([d.motif.toUpperCase(), "", d.montant, date]);
+  // Notification push : tous les appareils de l'association sont
+  // prévenus (objet + somme de la sortie).
+  if (compteActif) {
+    const nomAssoc = (getAssocInfos().nom || "L'association");
+    push.notifierTous(compteActif.id,
+      "Nouvelle sortie d'argent",
+      `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
+      .catch(() => {});
+  }
   return {status:"success", msg:"Sortie validée !"};
 }
 
