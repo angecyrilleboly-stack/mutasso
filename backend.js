@@ -550,8 +550,23 @@ function getTypesExcep() { const s = SS.getSheetByName(SHEET_TYPES_EXCEP);
   if (!s || s.getLastRow() <= 1) return []; return s.getDataRange().getValues().slice(1).map((r, i) => ({ id: i + 2, label: r[0].toString().toUpperCase(), montant: r[1] }));
 }
 
-function enregistrerTypeExcep(d) { const s = SS.getSheetByName(SHEET_TYPES_EXCEP); const row = [d.label.toUpperCase(), d.montant]; if (d.id) { s.getRange(d.id, 1, 1, 2).setValues([row]);
-  } else { s.appendRow(row); } return { status: "success", msg: "Motif sauvegardé !" };
+function enregistrerTypeExcep(d) {
+  const s = SS.getSheetByName(SHEET_TYPES_EXCEP);
+  const row = [d.label.toUpperCase(), d.montant];
+  if (d.id) {
+    // Modification d'un motif existant : pas de notification
+    s.getRange(d.id, 1, 1, 2).setValues([row]);
+    return { status: "success", msg: "Motif sauvegardé !" };
+  }
+  // NOUVEL événement de cotisation créé : les MEMBRES sont prévenus
+  // (nom de la cotisation + montant à participer).
+  s.appendRow(row);
+  const nomAssoc = compteActif ? (getAssocInfos().nom || "L'association") : '';
+  const envoi = push.notifierTous(compteActif ? compteActif.id : null,
+    'Nouvelle cotisation exceptionnelle',
+    `${nomAssoc} : ${String(d.label).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA. Pensez à votre participation.`)
+    .catch(e => { console.error('Push motif excep :', e && e.message); return { envoyees: 0 }; });
+  return envoi.then(r => ({ status: "success", msg: "Motif sauvegardé !", membresNotifies: r.envoyees || 0 }));
 }
 
 // Mensualité UNIQUE : un seul montant pour toute l'association,
