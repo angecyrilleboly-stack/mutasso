@@ -1675,20 +1675,31 @@
         }
 
         // Document officiel : en-tête, objet (la demande), synthèse,
-        // sections chiffrées, signature.
+        // sections demandées (en-têtes et colonnes propres à chaque
+        // section : bureau, adhérents, retards, chiffres…), signature.
         function construireRapportElement(r) {
             const td = 'border:1px solid #141414; padding:7px 10px; font-size:10.5px;';
             const th = td + ' background:#efefef; font-weight:bold; text-transform:uppercase; font-size:9.5px; letter-spacing:.4px;';
-            const ligneFin = (lib, val, gras) => '<tr>' +
-                '<td style="' + td + (gras ? ' font-weight:bold;' : '') + '">' + lib + '</td>' +
-                '<td style="' + td + ' text-align:right;' + (gras ? ' font-weight:bold;' : '') + '">' + val + '</td></tr>';
+            const cellule = (v, gras, aligneDroite) => '<td style="' + td + (gras ? ' font-weight:bold;' : '') + (aligneDroite ? ' text-align:right;' : '') + '">' + v + '</td>';
+            const ligne = (cells, gras, aligneDroite) => '<tr>' + cells.map(c => cellule(c, gras, aligneDroite)).join('') + '</tr>';
 
-            const sections = (r.sections || []).map(s => `
+            const sections = (r.sections || []).map(s => {
+                const entetes = s.entetes && s.entetes.length ? s.entetes : ['Désignation', 'Montant / Détail'];
+                const monetaire = !!s.monetaire;
+                const corps = s.lignes.map(l => {
+                    // Dernier élément booléen = drapeau « ligne en gras »
+                    const gras = l[l.length - 1] === true;
+                    const cells = gras ? l.slice(0, -1) : l;
+                    return ligne(cells.map(c => esc(String(c))), gras, monetaire);
+                }).join('');
+                const tete = '<tr>' + entetes.map((h, i) => '<th style="' + th + (monetaire && i === entetes.length - 1 ? ' text-align:right;' : '') + '">' + esc(h) + '</th>').join('') + '</tr>';
+                return `
                 <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">${esc(s.titre)}</p>
                 <table style="width:100%; border-collapse:collapse;">
-                    <thead><tr><th style="${th}">Désignation</th><th style="${th} width:210px; text-align:right;">Montant / Détail</th></tr></thead>
-                    <tbody>${s.lignes.map(l => ligneFin(esc(l[0]), esc(l[1]), !!l[2])).join('')}</tbody>
-                </table>`).join('');
+                    <thead>${tete}</thead>
+                    <tbody>${corps}</tbody>
+                </table>`;
+            }).join('');
 
             const element = document.createElement('div');
             element.style.cssText = "padding:0; font-family:'Times New Roman',Georgia,serif; color:#141414;";

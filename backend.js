@@ -816,14 +816,16 @@ function getRapportPeriode(m1, a1, m2, a2) {
 }
 
 /* ============================================================
-// RAPPORT LIBRE — rédigé à partir d'une demande en français
-//   Aucune IA externe : la demande est analysée (période visée,
-//   sujets mentionnés) puis la synthèse administrative est
-//   composée sur les CHIFFRES RÉELS de l'association.
+// RAPPORT LIBRE — la demande est traitée comme un PROMPT :
+//   chaque intention y est détectée (composition du bureau,
+//   liste des adhérents, mensualités, retards, exceptionnelles,
+//   dépenses, caisse/solde, période) et le document contient
+//   EXACTEMENT les sections demandées — rien d'autre.
+//   Aucune IA externe : analyse et rédaction par ce moteur.
 // ============================================================ */
 function sansAccent(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
-// Analyse la demande : période (bornes de mois) et sujets abordés
+// Analyse la demande : période visée + intentions reconnues
 function analyserDemandeRapport(demande) {
   const t = sansAccent(demande);
   const auj = new Date();
@@ -842,10 +844,9 @@ function analyserDemandeRapport(demande) {
 
   let debut = null, fin = null, libelle = 'À CE JOUR';
   if (moisCites.length >= 2) {
-    // « de janvier à mars » : les deux premiers mois cités bornent la période
     debut = { m: moisCites[0] + 1, a: annee };
     fin = { m: moisCites[1] + 1, a: annee };
-    if (debut.m > fin.m) { const b = debut; debut = fin; fin = b; } // déc→jan sur 2 années : on garde l'ordre chronologique demandé
+    if (debut.m > fin.m) { const b = debut; debut = fin; fin = b; }
     libelle = MOIS_ADMIN[debut.m - 1].toUpperCase() + (debut.m === fin.m ? '' : ' — ' + MOIS_ADMIN[fin.m - 1].toUpperCase()) + ' ' + fin.a;
   } else if (moisCites.length === 1) {
     debut = fin = { m: moisCites[0] + 1, a: annee };
@@ -861,69 +862,87 @@ function analyserDemandeRapport(demande) {
     libelle = MOIS_ADMIN[auj.getMonth()].toUpperCase() + ' ' + auj.getFullYear();
   }
 
-  return {
-    periode: debut ? { debut: debut, fin: fin } : null,
-    libelle: libelle,
-    sujets: {
-      mensuel: /mensual|mensuel|cotis(ation)?s? du mois/.test(t),
-      excep: /exceptionnel|special|evenement/.test(t),
-      depenses: /depense|sortie/.test(t),
-      retards: /retard|impaye|reliquat|non payes|restant/.test(t),
-      solde: /solde|caisse|tresorerie|bilan/.test(t)
-    }
+  // Intentions : chaque bloc demandé apparaîtra dans le document.
+  // « membres du bureau » => bureau ; « membres » seul => effectif.
+  const intents = {
+    bureau: /bureau|comite|dirigeant|poste/.test(t),
+    membres: (/\bmembres?\b|\badherents?\b|effectif/.test(t)) && !/bureau|comite|dirigeant/.test(t),
+    mensuel: /mensual|mensuel/.test(t),
+    excep: /exceptionnel|special|evenement/.test(t),
+    depenses: /depense|sortie/.test(t),
+    retards: /retard|impaye|reliquat|non payes|restant/.test(t),
+    solde: /solde|caisse|tresorerie|bilan/.test(t)
   };
+  // Aucune intention reconnue -> rapport de gestion général
+  const general = !Object.values(intents).some(Boolean);
+  if (general) { intents.mensuel = intents.excep = intents.depenses = intents.solde = true; }
+
+  return { periode: debut ? { debut: debut, fin: fin } : null, libelle: libelle, intents: intents, general: general };
 }
 
-// Rédige la synthèse (registre administratif) sur les chiffres réels
+// Rédige la synthèse : un paragraphe par intention demandée,
+// uniquement sur des chiffres réels.
 function redigerSyntheseRapport(demande, C) {
   const F = n => Number(n || 0).toLocaleString('fr-FR');
+  const I = C.intents;
   const p = [];
 
-  // 1) Objet du rapport
-  const objet = !C.periode
-    ? 'dressant la situation générale à ce jour'
-    : (C.debutLib === C.finLib
-        ? `portant sur le mois de ${C.debutLib}`
-        : `portant sur la période de ${C.debutLib} à ${C.finLib}`);
-  p.push(`Le présent rapport est établi à la demande du Bureau de ${C.nomAssoc}, ${objet}. Il s'appuie exclusivement sur les chiffres enregistrés dans la caisse de l'association : ${C.effectif} membres enregistrés, mensualité fixée à ${F(C.mensualite)} FCFA par mois.`);
+  p.push(`Le présent rapport est établi à la demande du Bureau de ${C.nomAssoc} et répond point par point à la requête suivante : « ${String(demande).trim()} ». ${C.periode ? 'Les données financières retenues couvrent la période de ' + C.debutLib + ' à ' + C.finLib + '.' : 'Les données financières retenues couvrent l\'ensemble des opérations enregistrées à ce jour.'}`);
 
-  // 2) Cotisations
-  if (C.fi.nbMens > 0 || C.fi.nbExc > 0) {
-    let ph = `Au titre de la période, ${C.fi.nbMens} mensualités ont été encaissées pour un montant de ${F(C.fi.totMens)} FCFA`;
-    if (C.fi.nbExc > 0) {
-      const premiers = C.motifsDetail.slice(0, 2).map(e => `« ${e.label} » (${F(e.total)} FCFA pour ${e.nb} cotisation${e.nb > 1 ? 's' : ''})`).join(' et ');
-      ph += `, auxquelles s'ajoutent ${C.fi.nbExc} cotisations exceptionnelles totalisant ${F(C.fi.totExc)} FCFA${C.motifsDetail.length ? ', dont ' + premiers : ''}`;
+  if (I.bureau) {
+    if (C.bureau.length) {
+      const enumeration = C.bureau.map(b => `le poste de ${b.poste} est occupé par ${b.nom}`).join(' ; ');
+      p.push(`S'agissant de la gouvernance, le bureau compte actuellement ${C.bureau.length} membre${C.bureau.length > 1 ? 's' : ''} en fonction : ${enumeration}.`);
+    } else {
+      p.push(`Aucun membre du bureau n'est actuellement enregistré dans l'application ; il conviendra de régulariser la composition du comité.`);
     }
-    ph += `.`;
-    p.push(ph);
-  } else {
-    p.push(`Aucune cotisation n'a été enregistrée sur la période considérée. Il appartiendra au Bureau de diligenter les relances nécessaires auprès des membres concernés.`);
   }
 
-  // 3) Situation des retards (mois courant, données certaines)
-  if (C.retards && C.retards.total > 0) {
+  if (I.membres) {
+    const villes = Object.keys(C.parVille).sort((a, b) => C.parVille[b] - C.parVille[a]).slice(0, 2)
+      .map(v => `${v} (${C.parVille[v]})`).join(' et ');
+    p.push(`L'effectif de l'association s'établit à ${C.effectif} membres enregistrés, dont ${C.nbHommes} hommes et ${C.nbFemmes} femmes${villes ? `, principalement résidant à ${villes}` : ''}.`);
+  }
+
+  if (I.mensuel || I.excep || I.solde || I.depenses) {
+    if (C.fi.nbMens > 0 || C.fi.nbExc > 0) {
+      let ph = `Au titre de la période, ${C.fi.nbMens} mensualités ont été encaissées pour un montant de ${F(C.fi.totMens)} FCFA`;
+      if (C.fi.nbExc > 0) {
+        const premiers = C.motifsDetail.slice(0, 2).map(e => `« ${e.label} » (${F(e.total)} FCFA pour ${e.nb} cotisation${e.nb > 1 ? 's' : ''})`).join(' et ');
+        ph += `, auxquelles s'ajoutent ${C.fi.nbExc} cotisations exceptionnelles totalisant ${F(C.fi.totExc)} FCFA${C.motifsDetail.length ? ', dont ' + premiers : ''}`;
+      }
+      p.push(ph + '.');
+    } else {
+      p.push(`Aucune cotisation n'a été enregistrée sur la période considérée. Il appartiendra au Bureau de diligenter les relances nécessaires auprès des membres concernés.`);
+    }
+  }
+
+  if (I.retards && C.retards && C.retards.total > 0) {
     p.push(`S'agissant de la mensualité de ${C.moisCourant}, ${C.retards.aJour} membres sur ${C.effectif} sont à jour, soit un taux de recouvrement de ${C.retards.taux} % ; ${C.retards.total} membre${C.retards.total > 1 ? 's' : ''} reste${C.retards.total > 1 ? 'nt' : ''} redevable${C.retards.total > 1 ? 's' : ''} d'un montant unitaire de ${F(C.mensualite)} FCFA. Le Bureau est invité à poursuivre les diligences de recouvrement engagées.`);
   }
 
-  // 4) Dépenses et solde
-  let ph = '';
-  if (C.fi.nbDep > 0) {
-    ph = `Par ailleurs, ${C.fi.nbDep} sortie${C.fi.nbDep > 1 ? 's' : ''} de caisse ${C.fi.nbDep > 1 ? 'ont été' : 'a été'} opérée${C.fi.nbDep > 1 ? 's' : ''} pour ${F(C.fi.totDep)} FCFA${C.depensesTop ? ', principalement ' + C.depensesTop : ''}. `;
+  if (I.depenses || I.solde || I.mensuel || I.excep) {
+    let ph = '';
+    if (C.fi.nbDep > 0) {
+      ph = `Par ailleurs, ${C.fi.nbDep} sortie${C.fi.nbDep > 1 ? 's' : ''} de caisse ${C.fi.nbDep > 1 ? 'ont été' : 'a été'} opérée${C.fi.nbDep > 1 ? 's' : ''} pour ${F(C.fi.totDep)} FCFA${C.depensesTop ? ', principalement ' + C.depensesTop : ''}. `;
+    }
+    const entrees = C.fi.totMens + C.fi.totExc;
+    ph += `Au total, les entrées de la période s'élèvent à ${F(entrees)} FCFA ; `;
+    ph += C.fi.solde >= 0
+      ? `la caisse présente un solde disponible de ${F(C.fi.solde)} FCFA, traduisant une gestion maîtrisée.`
+      : `les sorties excèdent les entrées de ${F(Math.abs(C.fi.solde))} FCFA, situation qui appelle une vigilance particulière du Bureau.`;
+    p.push(ph);
   }
-  const entrees = C.fi.totMens + C.fi.totExc;
-  ph += `Au total, les entrées de la période s'élèvent à ${F(entrees)} FCFA ; `;
-  ph += C.fi.solde >= 0
-    ? `la caisse présente un solde disponible de ${F(C.fi.solde)} FCFA, traduisant une gestion maîtrisée.`
-    : `les sorties excèdent les entrées de ${F(Math.abs(C.fi.solde))} FCFA, situation qui appelle une vigilance particulière du Bureau.`;
-  p.push(ph);
 
   return p.join('\n\n');
 }
 
-// Rapport généré à partir de la demande libre (aucune IA externe)
+// Le PROMPT devient le document : seules les sections demandées
+// sont produites (bureau, effectif, retards, finances, bilan).
 function getRapportLibre(demande) {
   if (!demande || !String(demande).trim()) return { status: "error", msg: "Décrivez d'abord le rapport souhaité." };
   const analyse = analyserDemandeRapport(demande);
+  const I = analyse.intents;
   const auj = new Date();
   const infos = getAssocInfos();
   const nomAssoc = (infos.nom || "L'Association").toUpperCase();
@@ -932,7 +951,7 @@ function getRapportLibre(demande) {
   const cfg = getMensualiteConfig();
   const F = n => Number(n || 0).toLocaleString('fr-FR');
 
-  // --- Collecte des données sur la période visée ---
+  // --- Données financières sur la période ---
   let mens, exc, dep;
   if (analyse.periode) {
     const P = analyse.periode;
@@ -947,35 +966,79 @@ function getRapportLibre(demande) {
     exc = SS.getSheetByName(SHEET_EXCEP).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
     dep = SS.getSheetByName(SHEET_DEPENSES).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
   }
-
   const totMens = mens.reduce((a, r) => a + (Number(r[4]) || 0), 0);
   const totExc = exc.reduce((a, r) => a + (Number(r[3]) || 0), 0);
   const totDep = dep.reduce((a, r) => a + (Number(r[2]) || 0), 0);
-
   const parMois = {};
   mens.forEach(r => { const k = String(r[2]) + ' ' + r[3]; if (!parMois[k]) parMois[k] = { nb: 0, total: 0 }; parMois[k].nb++; parMois[k].total += Number(r[4]) || 0; });
   const parMotif = {};
   exc.forEach(r => { const k = String(r[2]); if (!parMotif[k]) parMotif[k] = { nb: 0, total: 0 }; parMotif[k].nb++; parMotif[k].total += Number(r[3]) || 0; });
   const parDep = {};
   dep.forEach(r => { const k = String(r[0]); if (!parDep[k]) parDep[k] = { nb: 0, total: 0 }; parDep[k].nb++; parDep[k].total += Number(r[2]) || 0; });
+  const motifsDetail = Object.keys(parMotif).map(k => ({ label: k, nb: parMotif[k].nb, total: parMotif[k].total }));
+  const depensesTop = Object.keys(parDep).sort((a, b) => parDep[b].total - parDep[a].total).slice(0, 2)
+    .map(k => `${k.toLowerCase()} (${F(parDep[k].total)} FCFA)`).join(' puis ');
 
-  // Retards du mois courant (toujours calculés : données certaines)
+  // --- Bureau et effectif (état actuel) ---
+  const bureau = SS.getSheetByName(SHEET_BUREAU).getDataRange().getValues().slice(1)
+    .filter(r => r[1] && String(r[1]).trim() !== "")
+    .map(r => ({ nom: String(r[1]), poste: String(r[2] || ''), date: r[3] instanceof Date ? r[3].toLocaleDateString('fr-FR') : (String(r[3] || '')) }));
+  const parVille = {};
+  membres.forEach(m => { if (m.ville) parVille[m.ville] = (parVille[m.ville] || 0) + 1; });
+  const nbHommes = membres.filter(m => m.sexe === 'M').length;
+
+  // --- Retards du mois courant ---
   const moisCourant = MOIS_ADMIN[auj.getMonth()];
   const etat = getEtatPaiements('mensuel', moisCourant, String(auj.getFullYear()));
   const nbAJour = etat.filter(x => x.aPaye).length;
+  const retardataires = etat.filter(x => !x.aPaye);
   const retards = { aJour: nbAJour, total: membres.length - nbAJour, taux: membres.length ? Math.round(nbAJour / membres.length * 100) : 0 };
 
-  // --- Sections du document ---
-  const romains = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+  // --- Sections : uniquement ce que la demande mentionne ---
+  const romains = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
   const sections = [];
   let n = 0;
-  const clesMois = Object.keys(parMois);
-  if (clesMois.length) sections.push({ titre: romains[n++] + '. COTISATIONS MENSUELLES', lignes: clesMois.map(k => [k, parMois[k].nb + ' paiement' + (parMois[k].nb > 1 ? 's' : '') + ' — ' + F(parMois[k].total) + ' FCFA']) });
-  const motifsDetail = Object.keys(parMotif).map(k => ({ label: k, nb: parMotif[k].nb, total: parMotif[k].total }));
-  if (motifsDetail.length) sections.push({ titre: romains[n++] + '. COTISATIONS EXCEPTIONNELLES', lignes: motifsDetail.map(e => [e.label.toUpperCase(), e.nb + ' cotisation' + (e.nb > 1 ? 's' : '') + ' — ' + F(e.total) + ' FCFA']) });
-  if (parDep && Object.keys(parDep).length) sections.push({ titre: romains[n++] + '. DÉPENSES', lignes: Object.keys(parDep).map(k => [k.toUpperCase ? k.toUpperCase() : k, parDep[k].nb + ' sortie' + (parDep[k].nb > 1 ? 's' : '') + ' — ' + F(parDep[k].total) + ' FCFA']) });
-  sections.push({
+  if (I.bureau) {
+    sections.push({
+      titre: romains[n++] + '. COMPOSITION DU BUREAU',
+      entetes: ['Membre', 'Poste', 'Nommé le'],
+      lignes: bureau.length ? bureau.map(b => [b.nom.toUpperCase(), b.poste, b.date || '—']) : [['Aucun membre du bureau enregistré.', '—', '—']]
+    });
+  }
+  if (I.membres) {
+    sections.push({
+      titre: romains[n++] + '. LISTE DES ADHÉRENTS',
+      entetes: ['N°', 'Nom et prénoms', 'Contact', 'Ville'],
+      lignes: membres.map((m, i) => [String(i + 1), (m.nom + ' ' + m.prenom).toUpperCase(), m.contact || '—', m.ville || '—'])
+    });
+  }
+  if (I.retards) {
+    sections.push({
+      titre: romains[n++] + '. SITUATION DES RETARDS — MENSUALITÉ ' + moisCourant.toUpperCase() + ' ' + auj.getFullYear(),
+      entetes: ['Membre en retard', 'Contact'],
+      lignes: retardataires.length
+        ? retardataires.map(x => [(x.nom + ' ' + x.prenom).toUpperCase(), x.contact || '—'])
+        : [['Aucun retard constaté sur le mois en cours.', '—']]
+    });
+  }
+  if (I.mensuel) sections.push({
+    titre: romains[n++] + '. COTISATIONS MENSUELLES',
+    entetes: ['Mois', 'Paiements — Encaissé'], monetaire: true,
+    lignes: Object.keys(parMois).map(k => [k, parMois[k].nb + ' — ' + F(parMois[k].total) + ' FCFA'])
+  });
+  if (I.excep) sections.push({
+    titre: romains[n++] + '. COTISATIONS EXCEPTIONNELLES',
+    entetes: ['Événement', 'Cotisations — Encaissé'], monetaire: true,
+    lignes: motifsDetail.map(e => [e.label.toUpperCase(), e.nb + ' — ' + F(e.total) + ' FCFA'])
+  });
+  if (I.depenses) sections.push({
+    titre: romains[n++] + '. DÉPENSES',
+    entetes: ['Objet', 'Sorties — Montant'], monetaire: true,
+    lignes: Object.keys(parDep).map(k => [k.toUpperCase(), parDep[k].nb + ' — ' + F(parDep[k].total) + ' FCFA'])
+  });
+  if (I.solde || (!analyse.general && (I.mensuel || I.excep || I.depenses))) sections.push({
     titre: romains[n++] + '. BILAN FINANCIER' + (analyse.periode ? ' DE LA PÉRIODE' : ' DEPUIS LA CRÉATION'),
+    entetes: ['Désignation', 'Montant'], monetaire: true,
     lignes: [
       ['Cotisations mensuelles (' + mens.length + ' paiements)', F(totMens) + ' FCFA'],
       ['Cotisations exceptionnelles (' + exc.length + ' cotisations)', F(totExc) + ' FCFA'],
@@ -984,17 +1047,16 @@ function getRapportLibre(demande) {
       ['SOLDE', F(totMens + totExc - totDep) + ' FCFA', true]
     ]
   });
-
-  const depensesTop = Object.keys(parDep).sort((a, b) => parDep[b].total - parDep[a].total).slice(0, 2)
-    .map(k => `${k.toLowerCase()} (${F(parDep[k].total)} FCFA)`).join(' puis ');
+  if (!sections.length) sections.push({ titre: 'I. RAPPORT', entetes: ['Désignation', 'Détail'], lignes: [['Effectif', membres.length + ' membres']] });
 
   const contexte = {
     nomAssoc: nomAssoc, effectif: membres.length, mensualite: cfg ? cfg.montant : 0,
-    periode: analyse.periode,
+    periode: analyse.periode, intents: I,
     debutLib: analyse.periode ? MOIS_ADMIN[analyse.periode.debut.m - 1].toLowerCase() + ' ' + analyse.periode.debut.a : '',
     finLib: analyse.periode ? MOIS_ADMIN[analyse.periode.fin.m - 1].toLowerCase() + ' ' + analyse.periode.fin.a : '',
     fi: { nbMens: mens.length, totMens: totMens, nbExc: exc.length, totExc: totExc, nbDep: dep.length, totDep: totDep, solde: totMens + totExc - totDep },
     motifsDetail: motifsDetail, depensesTop: depensesTop,
+    bureau: bureau, parVille: parVille, nbHommes: nbHommes, nbFemmes: membres.length - nbHommes,
     retards: retards, moisCourant: moisCourant
   };
 
