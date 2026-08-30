@@ -521,16 +521,14 @@ function enregistrerMensuel(d) { SS.getSheetByName(SHEET_MENSUEL).appendRow([d.i
 
 function enregistrerExcep(d) {
   SS.getSheetByName(SHEET_EXCEP).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.motif.toUpperCase(), d.montant, new Date().toLocaleDateString('fr-FR')]);
-  // Notification push : tous les appareils de l'association sont
-  // prévenus (nom de la cotisation + montant).
-  if (compteActif) {
-    const nomAssoc = (getAssocInfos().nom || "L'association");
-    push.notifierTous(compteActif.id,
-      'Nouvelle cotisation exceptionnelle',
-      `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
-      .catch(() => {});
-  }
-  return {status:"success", msg:"Cotisation enregistrée !"};
+  // Notification push aux MEMBRES (nom de la cotisation + montant).
+  // Attendue : le résultat est compté dans la réponse (diagnostic).
+  const nomAssoc = compteActif ? (getAssocInfos().nom || "L'association") : '';
+  const envoi = push.notifierTous(compteActif ? compteActif.id : null,
+    'Nouvelle cotisation exceptionnelle',
+    `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
+    .catch(e => { console.error('Push excep :', e && e.message); return { envoyees: 0 }; });
+  return envoi.then(r => ({status:"success", msg:"Cotisation enregistrée !", membresNotifies: r.envoyees || 0}));
 }
 
 // Sortie de caisse : objet + date + somme. La date saisie (format
@@ -539,16 +537,13 @@ function enregistrerExcep(d) {
 function enregistrerDepense(d) {
   const date = d.date ? formatDateFR(d.date) : new Date().toLocaleDateString('fr-FR');
   SS.getSheetByName(SHEET_DEPENSES).appendRow([d.motif.toUpperCase(), "", d.montant, date]);
-  // Notification push : tous les appareils de l'association sont
-  // prévenus (objet + somme de la sortie).
-  if (compteActif) {
-    const nomAssoc = (getAssocInfos().nom || "L'association");
-    push.notifierTous(compteActif.id,
-      "Nouvelle sortie d'argent",
-      `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
-      .catch(() => {});
-  }
-  return {status:"success", msg:"Sortie validée !"};
+  // Notification push aux MEMBRES (objet + somme de la sortie).
+  const nomAssoc = compteActif ? (getAssocInfos().nom || "L'association") : '';
+  const envoi = push.notifierTous(compteActif ? compteActif.id : null,
+    "Nouvelle sortie d'argent",
+    `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
+    .catch(e => { console.error('Push dépense :', e && e.message); return { envoyees: 0 }; });
+  return envoi.then(r => ({status:"success", msg:"Sortie validée !", membresNotifies: r.envoyees || 0}));
 }
 
 function getTypesExcep() { const s = SS.getSheetByName(SHEET_TYPES_EXCEP);
