@@ -571,6 +571,11 @@
                             <button type="submit" class="btn-primary w-full justify-center"><i data-lucide="key-round" class="w-4 h-4"></i>Générer le mot de passe</button>
                         </form>
                         <p class="text-[9.5px] font-bold mt-3 leading-relaxed" style="color:var(--muted)">Le membre se connecte avec l'email de l'association et ce mot de passe : il accède alors à son espace personnel (ses cotisations, en lecture seule). Il pourra le changer lui-même depuis son espace. Générer un nouveau mot de passe remplace l'ancien.</p>
+                    <!-- Appareils membres qui recevront les notifications -->
+                    <div id="acces-notif-etat" class="mt-4 p-3 rounded-2xl flex items-center gap-3" style="background:var(--field);border:1px solid var(--field-border)">
+                        <div class="icon-tile it-teal" style="width:34px;height:34px;border-radius:11px"><i data-lucide="bell" class="w-3.5 h-3.5"></i></div>
+                        <p id="acces-notif-txt" class="text-[10.5px] font-bold leading-relaxed" style="color:var(--muted)">Appareils membres abonnés aux notifications : …</p>
+                    </div>
                         <!-- Mot de passe généré : affiché une seule fois -->
                         <div id="acces-membre-resultat" class="hidden mt-4 p-4 rounded-[18px]" style="background:rgba(5,150,105,.08);border:1px solid rgba(5,150,105,.25)">
                             <p class="text-[10px] font-black uppercase tracking-widest" style="color:var(--in)">Accès de <span id="acces-m-nom">—</span></p>
@@ -1349,7 +1354,21 @@
         async function activerNotificationsPush(manuel) {
             const cloche = document.getElementById('btn-notif');
             const montrerCloche = v => { if (cloche) cloche.classList.toggle('hidden', !v); };
-            if (window.roleActif !== 'membre') { montrerCloche(false); return; }
+            if (window.roleActif !== 'membre') {
+                montrerCloche(false);
+                // GESTIONNAIRE : cet appareil ne doit PAS recevoir les
+                // notifications membres. S'il avait été abonné lors
+                // d'une session membre précédente, on repasse son
+                // abonnement en rôle 'admin' (il ne reçoit plus).
+                try {
+                    if ('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && Notification.permission === 'granted') {
+                        const enr = await navigator.serviceWorker.ready;
+                        const sub = await enr.pushManager.getSubscription();
+                        if (sub) await api('abonnerPush', sub.toJSON()).catch(() => {});
+                    }
+                } catch (e) { console.error(e); }
+                return;
+            }
             if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
                 montrerCloche(false);
                 if (manuel) showToast('Notifications non prises en charge par ce navigateur.', 'error');
@@ -1909,6 +1928,14 @@
         function afficherListeAcces() {
             const box = document.getElementById('acces-m-liste');
             if (!box) return;
+            api('compterAbonnementsMembres').then(r => {
+                const el = document.getElementById('acces-notif-txt');
+                if (el && r && r.status === 'success') {
+                    el.innerHTML = r.nb > 0
+                        ? `<b style="color:var(--in)">${r.nb} appareil(s) membre(s)</b> recevront les notifications (cotisations exceptionnelles, sorties d'argent).`
+                        : `<b style="color:var(--out)">Aucun appareil membre abonné.</b> Chaque membre doit ouvrir son espace une fois et accepter les notifications (cloche en haut à droite).`;
+                }
+            }).catch(() => {});
             api('idsAccesMembres').then(ids => {
                 const avecAcces = new Set(ids);
                 const actifs = listMembres.filter(m => avecAcces.has(m.id));

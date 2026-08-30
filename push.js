@@ -95,6 +95,11 @@ async function lister(idCompte, role) {
   return abosFichiers.filter(a => a.compteId === idCompte && (!role || a.role === role));
 }
 
+// Nombre d'appareils d'un rôle donné abonnés à une association
+async function compter(idCompte, role) {
+  return (await lister(idCompte, role)).length;
+}
+
 // Nettoie un abonnement invalide (appareil désinstallé, etc.)
 async function retirer(endpoint) {
   if (config.MODE_PG) { await store.pgSupprimerAbonnementPush(endpoint); return; }
@@ -136,4 +141,4 @@ async function notifierAppareil(subscription, titre, corps) {
   } catch (e) { return false; }
 }
 
-module.exports = { initialiser, clePublique, abonner, notifierTous, notifierAppareil };
+module.exports = { initialiser, clePublique, abonner, notifierTous, notifierAppareil, compter };

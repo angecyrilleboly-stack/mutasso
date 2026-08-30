@@ -375,6 +375,13 @@ async function testPushPerso(subscription) {
     : { status: "error", msg: "Envoi impossible — réessayez." };
 }
 
+// Combien d'appareils MEMBRES recevront les notifications de
+// l'association (diagnostic affiché au gestionnaire)
+async function compterAbonnementsMembres() {
+  if (!compteActif) return { status: "error", nb: 0 };
+  return { status: "success", nb: await push.compter(compteActif.id, 'membre') };
+}
+
 function getMembres() { const s = SS.getSheetByName(SHEET_MEMBRES); const v = s.getDataRange().getValues(); return v.length <= 1 ? [] : v.slice(1).filter(r => r[0] !== "").map(row => ({ id: row[0].toString(), nom: row[1].toString(), prenom: row[2].toString(), contact: row[3].toString(), ville: row[4].toString(), sexe: row[5].toString() })); }
 
 function getDashboardStats() {
@@ -887,5 +894,5 @@ module.exports = {
   getRapportJour, getRapportPeriode, genererRapportIA,
   compteExiste, creerCompte, connexion, verifierToken, verifierSession, activerCompte, infosCompte, majIdentite, majMotDePasse,
   genererMdpMembre, supprimerAccesMembre, majMotDePasseMembre, idsAccesMembres,
-  clePubliquePush, abonnerPush, testPushPerso
+  clePubliquePush, abonnerPush, testPushPerso, compterAbonnementsMembres
 };
