@@ -815,6 +815,203 @@ function getRapportPeriode(m1, a1, m2, a2) {
   };
 }
 
+/* ============================================================
+// RAPPORT LIBRE — rédigé à partir d'une demande en français
+//   Aucune IA externe : la demande est analysée (période visée,
+//   sujets mentionnés) puis la synthèse administrative est
+//   composée sur les CHIFFRES RÉELS de l'association.
+// ============================================================ */
+function sansAccent(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+
+// Analyse la demande : période (bornes de mois) et sujets abordés
+function analyserDemandeRapport(demande) {
+  const t = sansAccent(demande);
+  const auj = new Date();
+  const nomsMois = MOIS_ADMIN.map(sansAccent);
+  const abreges = ['janv', 'fev', 'mars', 'avr', 'mai', 'juin', 'juil', 'aout', 'sept', 'oct', 'nov', 'dec'];
+
+  // Mois cités, dans l'ordre d'apparition dans la phrase
+  const moisCites = [];
+  nomsMois.forEach((nom, i) => {
+    if (new RegExp('\\b' + nom + '\\b').test(t) || new RegExp('\\b' + abreges[i] + '\\b').test(t)) {
+      if (!moisCites.includes(i)) moisCites.push(i);
+    }
+  });
+  const anneesCitees = [...t.matchAll(/\b(20\d{2})\b/g)].map(m => parseInt(m[1], 10));
+  const annee = anneesCitees.length ? anneesCitees[0] : auj.getFullYear();
+
+  let debut = null, fin = null, libelle = 'À CE JOUR';
+  if (moisCites.length >= 2) {
+    // « de janvier à mars » : les deux premiers mois cités bornent la période
+    debut = { m: moisCites[0] + 1, a: annee };
+    fin = { m: moisCites[1] + 1, a: annee };
+    if (debut.m > fin.m) { const b = debut; debut = fin; fin = b; } // déc→jan sur 2 années : on garde l'ordre chronologique demandé
+    libelle = MOIS_ADMIN[debut.m - 1].toUpperCase() + (debut.m === fin.m ? '' : ' — ' + MOIS_ADMIN[fin.m - 1].toUpperCase()) + ' ' + fin.a;
+  } else if (moisCites.length === 1) {
+    debut = fin = { m: moisCites[0] + 1, a: annee };
+    libelle = MOIS_ADMIN[moisCites[0]].toUpperCase() + ' ' + annee;
+  } else if (/(l'?)?annee derniere|precedente/.test(t)) {
+    debut = { m: 1, a: auj.getFullYear() - 1 }; fin = { m: 12, a: auj.getFullYear() - 1 };
+    libelle = 'ANNÉE ' + (auj.getFullYear() - 1);
+  } else if (/cette annee|annee en cours|sur l'annee|de l'annee/.test(t)) {
+    debut = { m: 1, a: auj.getFullYear() }; fin = { m: auj.getMonth() + 1, a: auj.getFullYear() };
+    libelle = 'ANNÉE ' + auj.getFullYear();
+  } else if (/ce mois|mois en cours|mensualite du mois/.test(t)) {
+    debut = fin = { m: auj.getMonth() + 1, a: auj.getFullYear() };
+    libelle = MOIS_ADMIN[auj.getMonth()].toUpperCase() + ' ' + auj.getFullYear();
+  }
+
+  return {
+    periode: debut ? { debut: debut, fin: fin } : null,
+    libelle: libelle,
+    sujets: {
+      mensuel: /mensual|mensuel|cotis(ation)?s? du mois/.test(t),
+      excep: /exceptionnel|special|evenement/.test(t),
+      depenses: /depense|sortie/.test(t),
+      retards: /retard|impaye|reliquat|non payes|restant/.test(t),
+      solde: /solde|caisse|tresorerie|bilan/.test(t)
+    }
+  };
+}
+
+// Rédige la synthèse (registre administratif) sur les chiffres réels
+function redigerSyntheseRapport(demande, C) {
+  const F = n => Number(n || 0).toLocaleString('fr-FR');
+  const p = [];
+
+  // 1) Objet du rapport
+  const objet = !C.periode
+    ? 'dressant la situation générale à ce jour'
+    : (C.debutLib === C.finLib
+        ? `portant sur le mois de ${C.debutLib}`
+        : `portant sur la période de ${C.debutLib} à ${C.finLib}`);
+  p.push(`Le présent rapport est établi à la demande du Bureau de ${C.nomAssoc}, ${objet}. Il s'appuie exclusivement sur les chiffres enregistrés dans la caisse de l'association : ${C.effectif} membres enregistrés, mensualité fixée à ${F(C.mensualite)} FCFA par mois.`);
+
+  // 2) Cotisations
+  if (C.fi.nbMens > 0 || C.fi.nbExc > 0) {
+    let ph = `Au titre de la période, ${C.fi.nbMens} mensualités ont été encaissées pour un montant de ${F(C.fi.totMens)} FCFA`;
+    if (C.fi.nbExc > 0) {
+      const premiers = C.motifsDetail.slice(0, 2).map(e => `« ${e.label} » (${F(e.total)} FCFA pour ${e.nb} cotisation${e.nb > 1 ? 's' : ''})`).join(' et ');
+      ph += `, auxquelles s'ajoutent ${C.fi.nbExc} cotisations exceptionnelles totalisant ${F(C.fi.totExc)} FCFA${C.motifsDetail.length ? ', dont ' + premiers : ''}`;
+    }
+    ph += `.`;
+    p.push(ph);
+  } else {
+    p.push(`Aucune cotisation n'a été enregistrée sur la période considérée. Il appartiendra au Bureau de diligenter les relances nécessaires auprès des membres concernés.`);
+  }
+
+  // 3) Situation des retards (mois courant, données certaines)
+  if (C.retards && C.retards.total > 0) {
+    p.push(`S'agissant de la mensualité de ${C.moisCourant}, ${C.retards.aJour} membres sur ${C.effectif} sont à jour, soit un taux de recouvrement de ${C.retards.taux} % ; ${C.retards.total} membre${C.retards.total > 1 ? 's' : ''} reste${C.retards.total > 1 ? 'nt' : ''} redevable${C.retards.total > 1 ? 's' : ''} d'un montant unitaire de ${F(C.mensualite)} FCFA. Le Bureau est invité à poursuivre les diligences de recouvrement engagées.`);
+  }
+
+  // 4) Dépenses et solde
+  let ph = '';
+  if (C.fi.nbDep > 0) {
+    ph = `Par ailleurs, ${C.fi.nbDep} sortie${C.fi.nbDep > 1 ? 's' : ''} de caisse ${C.fi.nbDep > 1 ? 'ont été' : 'a été'} opérée${C.fi.nbDep > 1 ? 's' : ''} pour ${F(C.fi.totDep)} FCFA${C.depensesTop ? ', principalement ' + C.depensesTop : ''}. `;
+  }
+  const entrees = C.fi.totMens + C.fi.totExc;
+  ph += `Au total, les entrées de la période s'élèvent à ${F(entrees)} FCFA ; `;
+  ph += C.fi.solde >= 0
+    ? `la caisse présente un solde disponible de ${F(C.fi.solde)} FCFA, traduisant une gestion maîtrisée.`
+    : `les sorties excèdent les entrées de ${F(Math.abs(C.fi.solde))} FCFA, situation qui appelle une vigilance particulière du Bureau.`;
+  p.push(ph);
+
+  return p.join('\n\n');
+}
+
+// Rapport généré à partir de la demande libre (aucune IA externe)
+function getRapportLibre(demande) {
+  if (!demande || !String(demande).trim()) return { status: "error", msg: "Décrivez d'abord le rapport souhaité." };
+  const analyse = analyserDemandeRapport(demande);
+  const auj = new Date();
+  const infos = getAssocInfos();
+  const nomAssoc = (infos.nom || "L'Association").toUpperCase();
+  const contactAssoc = [infos.tel, infos.email].filter(Boolean).join(' • ');
+  const membres = getMembres();
+  const cfg = getMensualiteConfig();
+  const F = n => Number(n || 0).toLocaleString('fr-FR');
+
+  // --- Collecte des données sur la période visée ---
+  let mens, exc, dep;
+  if (analyse.periode) {
+    const P = analyse.periode;
+    const k1 = P.debut.a * 12 + (P.debut.m - 1), k2 = P.fin.a * 12 + (P.fin.m - 1);
+    const cle = d => { const q = String(d).split('/'); return q.length === 3 ? (Number(q[2]) * 12) + (Number(q[1]) - 1) : -1; };
+    const dans = d => { const k = cle(d); return k >= k1 && k <= k2; };
+    mens = SS.getSheetByName(SHEET_MENSUEL).getDataRange().getValues().slice(1).filter(r => r[0] !== "" && dans(r[5]));
+    exc = SS.getSheetByName(SHEET_EXCEP).getDataRange().getValues().slice(1).filter(r => r[0] !== "" && dans(r[4]));
+    dep = SS.getSheetByName(SHEET_DEPENSES).getDataRange().getValues().slice(1).filter(r => r[0] !== "" && dans(r[3]));
+  } else {
+    mens = SS.getSheetByName(SHEET_MENSUEL).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
+    exc = SS.getSheetByName(SHEET_EXCEP).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
+    dep = SS.getSheetByName(SHEET_DEPENSES).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
+  }
+
+  const totMens = mens.reduce((a, r) => a + (Number(r[4]) || 0), 0);
+  const totExc = exc.reduce((a, r) => a + (Number(r[3]) || 0), 0);
+  const totDep = dep.reduce((a, r) => a + (Number(r[2]) || 0), 0);
+
+  const parMois = {};
+  mens.forEach(r => { const k = String(r[2]) + ' ' + r[3]; if (!parMois[k]) parMois[k] = { nb: 0, total: 0 }; parMois[k].nb++; parMois[k].total += Number(r[4]) || 0; });
+  const parMotif = {};
+  exc.forEach(r => { const k = String(r[2]); if (!parMotif[k]) parMotif[k] = { nb: 0, total: 0 }; parMotif[k].nb++; parMotif[k].total += Number(r[3]) || 0; });
+  const parDep = {};
+  dep.forEach(r => { const k = String(r[0]); if (!parDep[k]) parDep[k] = { nb: 0, total: 0 }; parDep[k].nb++; parDep[k].total += Number(r[2]) || 0; });
+
+  // Retards du mois courant (toujours calculés : données certaines)
+  const moisCourant = MOIS_ADMIN[auj.getMonth()];
+  const etat = getEtatPaiements('mensuel', moisCourant, String(auj.getFullYear()));
+  const nbAJour = etat.filter(x => x.aPaye).length;
+  const retards = { aJour: nbAJour, total: membres.length - nbAJour, taux: membres.length ? Math.round(nbAJour / membres.length * 100) : 0 };
+
+  // --- Sections du document ---
+  const romains = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+  const sections = [];
+  let n = 0;
+  const clesMois = Object.keys(parMois);
+  if (clesMois.length) sections.push({ titre: romains[n++] + '. COTISATIONS MENSUELLES', lignes: clesMois.map(k => [k, parMois[k].nb + ' paiement' + (parMois[k].nb > 1 ? 's' : '') + ' — ' + F(parMois[k].total) + ' FCFA']) });
+  const motifsDetail = Object.keys(parMotif).map(k => ({ label: k, nb: parMotif[k].nb, total: parMotif[k].total }));
+  if (motifsDetail.length) sections.push({ titre: romains[n++] + '. COTISATIONS EXCEPTIONNELLES', lignes: motifsDetail.map(e => [e.label.toUpperCase(), e.nb + ' cotisation' + (e.nb > 1 ? 's' : '') + ' — ' + F(e.total) + ' FCFA']) });
+  if (parDep && Object.keys(parDep).length) sections.push({ titre: romains[n++] + '. DÉPENSES', lignes: Object.keys(parDep).map(k => [k.toUpperCase ? k.toUpperCase() : k, parDep[k].nb + ' sortie' + (parDep[k].nb > 1 ? 's' : '') + ' — ' + F(parDep[k].total) + ' FCFA']) });
+  sections.push({
+    titre: romains[n++] + '. BILAN FINANCIER' + (analyse.periode ? ' DE LA PÉRIODE' : ' DEPUIS LA CRÉATION'),
+    lignes: [
+      ['Cotisations mensuelles (' + mens.length + ' paiements)', F(totMens) + ' FCFA'],
+      ['Cotisations exceptionnelles (' + exc.length + ' cotisations)', F(totExc) + ' FCFA'],
+      ['Total des entrées', F(totMens + totExc) + ' FCFA', true],
+      ['Dépenses (' + dep.length + ' opérations)', '− ' + F(totDep) + ' FCFA'],
+      ['SOLDE', F(totMens + totExc - totDep) + ' FCFA', true]
+    ]
+  });
+
+  const depensesTop = Object.keys(parDep).sort((a, b) => parDep[b].total - parDep[a].total).slice(0, 2)
+    .map(k => `${k.toLowerCase()} (${F(parDep[k].total)} FCFA)`).join(' puis ');
+
+  const contexte = {
+    nomAssoc: nomAssoc, effectif: membres.length, mensualite: cfg ? cfg.montant : 0,
+    periode: analyse.periode,
+    debutLib: analyse.periode ? MOIS_ADMIN[analyse.periode.debut.m - 1].toLowerCase() + ' ' + analyse.periode.debut.a : '',
+    finLib: analyse.periode ? MOIS_ADMIN[analyse.periode.fin.m - 1].toLowerCase() + ' ' + analyse.periode.fin.a : '',
+    fi: { nbMens: mens.length, totMens: totMens, nbExc: exc.length, totExc: totExc, nbDep: dep.length, totDep: totDep, solde: totMens + totExc - totDep },
+    motifsDetail: motifsDetail, depensesTop: depensesTop,
+    retards: retards, moisCourant: moisCourant
+  };
+
+  return {
+    status: "success",
+    type: "libre",
+    demande: String(demande).trim(),
+    libellePeriode: analyse.libelle,
+    genereLe: auj.toLocaleDateString('fr-FR'),
+    nomAssoc: nomAssoc, contactAssoc: contactAssoc, logo: infos.logo || "",
+    effectif: membres.length,
+    synthese: redigerSyntheseRapport(demande, contexte),
+    sections: sections,
+    solde: F(totMens + totExc - totDep) + ' FCFA'
+  };
+}
+
 // --- Synthèse rédigée par l'IA à partir des données du rapport ---
 async function genererRapportIA(d) {
   let nomAssoc = "l'Association";
@@ -891,7 +1088,7 @@ module.exports = {
   getAssocInfos, saveAssocInfos, getBureau, getPostes, nommerMembre, enregistrerPoste, supprimerPoste,
   supprimerTypeExcep, supprimerTypeMensuel, uploadFileToDrive, autoriserDrive,
   genererPV_IA, testAutorisationIA, initialiserMUTASSO, seedDefaults,
-  getRapportJour, getRapportPeriode, genererRapportIA,
+  getRapportJour, getRapportPeriode, getRapportLibre, genererRapportIA,
   compteExiste, creerCompte, connexion, verifierToken, verifierSession, activerCompte, infosCompte, majIdentite, majMotDePasse,
   genererMdpMembre, supprimerAccesMembre, majMotDePasseMembre, idsAccesMembres,
   clePubliquePush, abonnerPush, testPushPerso, compterAbonnementsMembres

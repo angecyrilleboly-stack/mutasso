@@ -803,49 +803,28 @@
             <div id="p-rapports" class="page hidden">
                 <div class="mb-7">
                     <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--primary)"></span>Rapports</h3>
-                    <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Bilans de gestion en PDF, synthèse par l'IA</p>
+                    <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Décrivez votre besoin — le rapport officiel est rédigé automatiquement</p>
                 </div>
-                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 max-w-[1150px]">
-                    <div class="app-card p-8 flex flex-col gap-5">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <h4 class="text-[15px] font-black uppercase tracking-tight">Rapport à ce jour</h4>
-                                <p class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color:var(--muted)">Situation complète</p>
-                            </div>
-                            <div class="icon-tile it-teal" style="width:46px;height:46px"><i data-lucide="file-text" class="w-5 h-5"></i></div>
+                <div class="app-card p-8 max-w-[860px] flex flex-col gap-5">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h4 class="text-[15px] font-black uppercase tracking-tight">Rapport sur mesure</h4>
+                            <p class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color:var(--muted)">Une demande en français, un document officiel en PDF</p>
                         </div>
-                        <p class="text-[12px] font-semibold leading-relaxed" style="color:var(--muted)">Membres à jour et non à jour selon la mensualité du mois <b>et</b> chaque cotisation exceptionnelle, bilan financier de toutes les cotisations depuis la création, le tout dans un document officiel avec une synthèse rédigée par l'IA.</p>
-                        <div class="flex gap-2 mt-auto">
-                            <button id="btn-rap-jour" onclick="genererRapport('jour')" class="btn-primary flex-1 justify-center"><i data-lucide="file-down" class="w-4 h-4"></i>Générer le PDF</button>
-                        </div>
+                        <div class="icon-tile it-teal" style="width:46px;height:46px"><i data-lucide="file-text" class="w-5 h-5"></i></div>
                     </div>
-                    <div class="app-card p-8 flex flex-col gap-5">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <h4 class="text-[15px] font-black uppercase tracking-tight">Rapport sur période</h4>
-                                <p class="text-[10px] font-bold uppercase tracking-widest mt-1" style="color:var(--muted)">Bilan financier choisi</p>
-                            </div>
-                            <div class="icon-tile it-blue" style="width:46px;height:46px"><i data-lucide="calendar-range" class="w-5 h-5"></i></div>
-                        </div>
-                        <p class="text-[12px] font-semibold leading-relaxed" style="color:var(--muted)">Cotisations mensuelles mois par mois, exceptionnelles par motif et dépenses de la période sélectionnée, avec synthèse de l'IA.</p>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div><label class="label-style">Début</label>
-                                <div class="flex gap-2">
-                                    <select id="r-m1" class="input-field !w-auto flex-1 rounded-xl"></select>
-                                    <input type="number" id="r-a1" class="input-field !w-[84px] rounded-xl">
-                                </div>
-                            </div>
-                            <div><label class="label-style">Fin</label>
-                                <div class="flex gap-2">
-                                    <select id="r-m2" class="input-field !w-auto flex-1 rounded-xl"></select>
-                                    <input type="number" id="r-a2" class="input-field !w-[84px] rounded-xl">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex gap-2 mt-auto">
-                            <button id="btn-rap-periode" onclick="genererRapport('periode')" class="btn-primary flex-1 justify-center"><i data-lucide="file-down" class="w-4 h-4"></i>Générer le PDF</button>
-                        </div>
+                    <div>
+                        <label class="label-style">Que doit contenir le rapport ?</label>
+                        <textarea id="rapport-prompt" rows="4" class="input-field resize-none leading-relaxed" placeholder="Ex : Rapport des cotisations du mois d'août 2026, situation des retards et dépenses de l'année…">Rapport de gestion à ce jour : situation des mensualités, retards du mois et bilan de la caisse.</textarea>
+                        <p class="text-[9.5px] font-bold mt-2 leading-relaxed" style="color:var(--muted)">Indiquez la période voulue (« janvier à juin 2026 », « cette année », « ce mois », « à ce jour »…) et les sujets (mensualités, exceptionnelles, dépenses, retards, caisse). Le rapport n'utilise que les chiffres réels enregistrés par l'association.</p>
                     </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="suggestionRapport(this)" class="chip chip-neutral">Situation complète à ce jour</button>
+                        <button onclick="suggestionRapport(this)" class="chip chip-neutral">Cotisations et retards de ce mois</button>
+                        <button onclick="suggestionRapport(this)" class="chip chip-neutral">Dépenses de cette année</button>
+                        <button onclick="suggestionRapport(this)" class="chip chip-neutral">Bilan de janvier à décembre 2025</button>
+                    </div>
+                    <button id="btn-rap-generer" onclick="genererRapportLibre()" class="btn-primary justify-center"><i data-lucide="file-down" class="w-4 h-4"></i>Générer le rapport PDF</button>
                 </div>
             </div>
 
@@ -1637,48 +1616,35 @@
             }).catch(() => {});
         }
 
-        /* ============ RAPPORTS DE GESTION (PDF + synthèse IA) ============ */
-        function initRapports() {
-            const auj = new Date();
-            const opts = MOIS.map(m => `<option>${m}</option>`).join('');
-            const m1 = document.getElementById('r-m1'), m2 = document.getElementById('r-m2');
-            if (m1.options.length === 0) {
-                m1.innerHTML = opts; m2.innerHTML = opts;
-                m1.selectedIndex = 0;
-                m2.selectedIndex = auj.getMonth();
-                document.getElementById('r-a1').value = auj.getFullYear();
-                document.getElementById('r-a2').value = auj.getFullYear();
-            }
+        /* ============ RAPPORTS DE GESTION (sur mesure, sans IA externe) ============ */
+        const SUGGESTIONS_RAPPORT = {
+            "Situation complète à ce jour": "Rapport de gestion à ce jour : mensualités, cotisations exceptionnelles, retards et bilan de la caisse.",
+            "Cotisations et retards de ce mois": "Rapport des cotisations de ce mois avec la situation des retards de paiement.",
+            "Dépenses de cette année": "Bilan des dépenses et du solde de la caisse pour cette année.",
+            "Bilan de janvier à décembre 2025": "Rapport de gestion de janvier à décembre 2025 : cotisations, exceptionnelles, dépenses et solde."
+        };
+
+        function initRapports() { /* la zone de demande est prête à l'emploi */ }
+
+        function suggestionRapport(btn) {
+            const t = btn.innerText.trim();
+            document.getElementById('rapport-prompt').value = SUGGESTIONS_RAPPORT[t] || (t + '.');
         }
 
-        // Collecte données + synthèse IA (pour le PDF)
-        async function collecterRapport(type) {
-            let d;
-            if (type === 'jour') d = await api('getRapportJour');
-            else {
-                const m1 = document.getElementById('r-m1').selectedIndex + 1, a1 = +document.getElementById('r-a1').value;
-                const m2 = document.getElementById('r-m2').selectedIndex + 1, a2 = +document.getElementById('r-a2').value;
-                d = await api('getRapportPeriode', m1, a1, m2, a2);
-                if (d.status === 'error') { showToast(d.msg, 'error'); return null; }
-            }
-            const synthese = await api('genererRapportIA', d);
-            if (String(synthese).startsWith('Erreur')) { showToast("L'IA est surchargée, attendez 1 min.", 'error'); return null; }
-            return { d, synthese };
-        }
-
-        async function genererRapport(type) {
-            const btn = document.getElementById(type === 'jour' ? 'btn-rap-jour' : 'btn-rap-periode');
+        // Demande libre -> rapport officiel rédigé sur les chiffres réels
+        async function genererRapportLibre() {
+            const btn = document.getElementById('btn-rap-generer');
+            const demande = document.getElementById('rapport-prompt').value.trim();
+            if (!demande) { showToast("Décrivez d'abord le rapport souhaité.", 'error'); return; }
             const original = btn.innerHTML;
-            const setBtn = html => { btn.disabled = !!html; btn.innerHTML = html || original; if (html) { lucide.createIcons(); } };
-
+            const setBtn = h => { btn.disabled = !!h; btn.innerHTML = h || original; if (h) lucide.createIcons(); };
             try {
-                setBtn('<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Collecte des données…');
-                const donnees = await collecterRapport(type);
-                if (!donnees) { setBtn(''); return; }
+                setBtn('<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Rédaction du rapport…');
+                const r = await api('getRapportLibre', demande);
+                if (!r || r.status === 'error') { showToast((r && r.msg) || 'Rapport impossible.', 'error'); setBtn(''); return; }
                 setBtn('<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> PDF en cours…');
-                telechargerRapportPDF(donnees.d, donnees.synthese);
+                telechargerRapportPDF(r);
                 setBtn('');
-                showToast('Rapport PDF généré !');
             } catch (e) {
                 console.error(e);
                 showToast('Erreur lors de la génération du rapport.', 'error');
@@ -1686,20 +1652,19 @@
             }
         }
 
-        function telechargerRapportPDF(d, synthese) {
+        function telechargerRapportPDF(r) {
             const auj = new Date();
-            // Même technique que le reçu : conteneur permanent dans
-            // la page, démasqué le temps de la capture. (Un élément
-            // positionné hors-écran en fixed produisait un PDF vierge :
-            // html2canvas peint les éléments fixes au mauvais décalage.)
+            // Même technique que le reçu : conteneur permanent dans la
+            // page, démasqué le temps de la capture (un élément hors
+            // écran en fixed produisait un PDF vierge).
             const conteneur = document.getElementById('report-container');
             const zone = document.getElementById('report-content');
             zone.innerHTML = '';
-            zone.appendChild(construireRapportElement(d, synthese));
+            zone.appendChild(construireRapportElement(r));
             conteneur.classList.remove('hidden');
             const opt = {
                 margin: [0.5, 0.5, 0.6, 0.5],
-                filename: `Rapport_MUTASSO_${auj.toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`,
+                filename: 'Rapport_MUTASSO_' + auj.toLocaleDateString('fr-FR').replace(/\//g, '-') + '.pdf',
                 html2canvas: { scale: 2 },
                 jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
             };
@@ -1709,79 +1674,21 @@
             );
         }
 
-        function construireRapportElement(d, synthese) {
-            const F = n => Number(n || 0).toLocaleString('fr-FR');
-            const auj = new Date();
-            const dLongue = auj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-            const dLongueMaj = dLongue.charAt(0).toUpperCase() + dLongue.slice(1);
-            const nomAssoc = (window.assocData.nom || 'ASSOCIATION').toUpperCase();
-            const contactAssoc = [window.assocData.tel, window.assocData.email].filter(Boolean).join(' • ');
-
-            // Lignes communes de tableaux (style officiel)
+        // Document officiel : en-tête, objet (la demande), synthèse,
+        // sections chiffrées, signature.
+        function construireRapportElement(r) {
             const td = 'border:1px solid #141414; padding:7px 10px; font-size:10.5px;';
             const th = td + ' background:#efefef; font-weight:bold; text-transform:uppercase; font-size:9.5px; letter-spacing:.4px;';
-            const ligneFin = (lib, val, gras) => `<tr>
-                <td style="${td} ${gras ? 'font-weight:bold;' : ''}">${lib}</td>
-                <td style="${td} text-align:right; ${gras ? 'font-weight:bold;' : ''}">${val}</td>
-            </tr>`;
+            const ligneFin = (lib, val, gras) => '<tr>' +
+                '<td style="' + td + (gras ? ' font-weight:bold;' : '') + '">' + lib + '</td>' +
+                '<td style="' + td + ' text-align:right;' + (gras ? ' font-weight:bold;' : '') + '">' + val + '</td></tr>';
 
-            let sections = '';
-            if (d.type === 'jour') {
-                const taux = d.effectif ? Math.round(d.aJour.length / d.effectif * 100) : 0;
-                const evAbbr = d.events.map(e => e.label.split(/\s+/)[0].slice(0, 8).toUpperCase());
-                sections = `
-                    <p style="font-weight:bold; font-size:12px; margin:26px 0 4px;">I. SITUATION DES ADHÉRENTS — MENSUALITÉ ${esc(d.moisCourant).toUpperCase()} ${d.anneeCourante}</p>
-                    <p style="font-size:10.5px; margin:0 0 10px; font-style:italic;">${d.aJour.length} à jour sur ${d.effectif} (${taux} %) — mensualité de ${F(d.mensualiteMontant)} FCFA.</p>
-                    <table style="width:100%; border-collapse:collapse;">
-                        <thead><tr>
-                            <th style="${th} width:30px;">N°</th>
-                            <th style="${th}">Nom et Prénoms</th>
-                            <th style="${th} width:62px;">Mensuel</th>
-                            ${d.events.map((e, i) => `<th style="${th} width:58px;" title="${esc(e.label)}">${evAbbr[i]}</th>`).join('')}
-                        </tr></thead>
-                        <tbody>
-                            ${d.membres.map((m, i) => `<tr>
-                                <td style="${td} text-align:center;">${i + 1}</td>
-                                <td style="${td} text-transform:uppercase;">${esc(m.nom)}</td>
-                                <td style="${td} text-align:center; font-weight:bold;">${d.aJour.includes(m.id) ? '✓' : '—'}</td>
-                                ${d.events.map(e => `<td style="${td} text-align:center;">${e.payeurs.includes(m.id) ? '✓' : '—'}</td>`).join('')}
-                            </tr>`).join('')}
-                        </tbody>
-                    </table>
-
-                    <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">II. COTISATIONS EXCEPTIONNELLES</p>
-                    <table style="width:100%; border-collapse:collapse;">
-                        <thead><tr><th style="${th}">Événement</th><th style="${th} width:110px; text-align:right;">Montant unitaire</th><th style="${th} width:130px;">Ayant cotisé</th><th style="${th} width:130px; text-align:right;">Encaissé</th></tr></thead>
-                        <tbody>
-                            ${d.events.map(e => `<tr>
-                                <td style="${td} text-transform:uppercase;">${esc(e.label)}</td>
-                                <td style="${td} text-align:right;">${F(e.montant)} FCFA</td>
-                                <td style="${td} text-align:center;">${e.nbPayeurs} / ${d.effectif}</td>
-                                <td style="${td} text-align:right;">${F(e.nbPayeurs * e.montant)} FCFA</td>
-                            </tr>`).join('')}
-                        </tbody>
-                    </table>`;
-            } else {
-                const moisCles = Object.keys(d.parMois);
-                const motifCles = Object.keys(d.parMotif);
-                sections = `
-                    <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">I. COTISATIONS MENSUELLES DE LA PÉRIODE</p>
-                    <table style="width:100%; border-collapse:collapse;">
-                        <thead><tr><th style="${th}">Mois</th><th style="${th} width:130px;">Paiements</th><th style="${th} width:150px; text-align:right;">Encaissé</th></tr></thead>
-                        <tbody>${moisCles.length ? moisCles.map(k => ligneFin(k, d.parMois[k].nb + ' — ' + F(d.parMois[k].total) + ' FCFA')).join('') : `<tr><td style="${td}" colspan="3" >Aucune mensualité sur la période.</td></tr>`}</tbody>
-                    </table>
-
-                    <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">II. COTISATIONS EXCEPTIONNELLES DE LA PÉRIODE</p>
-                    <table style="width:100%; border-collapse:collapse;">
-                        <thead><tr><th style="${th}">Motif</th><th style="${th} width:130px;">Cotisations</th><th style="${th} width:150px; text-align:right;">Encaissé</th></tr></thead>
-                        <tbody>${motifCles.length ? motifCles.map(k => ligneFin(esc(k), d.parMotif[k].nb + ' — ' + F(d.parMotif[k].total) + ' FCFA')).join('') : `<tr><td style="${td}" colspan="3">Aucune cotisation exceptionnelle sur la période.</td></tr>`}</tbody>
-                    </table>`;
-            }
-
-            const titreP1 = d.type === 'jour' ? 'RAPPORT DE GESTION' : 'RAPPORT DE GESTION';
-            const titreP2 = d.type === 'jour' ? 'À CE JOUR' : 'PÉRIODE';
-            const titreP3 = d.type === 'jour' ? dLongueMaj : d.debut + ' — ' + d.fin;
-            const Fi = d.finances;
+            const sections = (r.sections || []).map(s => `
+                <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">${esc(s.titre)}</p>
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead><tr><th style="${th}">Désignation</th><th style="${th} width:210px; text-align:right;">Montant / Détail</th></tr></thead>
+                    <tbody>${s.lignes.map(l => ligneFin(esc(l[0]), esc(l[1]), !!l[2])).join('')}</tbody>
+                </table>`).join('');
 
             const element = document.createElement('div');
             element.style.cssText = "padding:0; font-family:'Times New Roman',Georgia,serif; color:#141414;";
@@ -1789,36 +1696,29 @@
                 <div style="padding:42px 52px 20px;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:22px; padding-bottom:12px; border-bottom:3px double #141414;">
                         <div style="display:flex; gap:13px; align-items:center; max-width:58%;">
-                            ${window.assocData.logo ? `<img src="${window.assocData.logo}" style="width:62px;height:62px;object-fit:contain;">` : ''}
+                            ${r.logo ? '<img src="' + r.logo + '" style="width:62px;height:62px;object-fit:contain;">' : ''}
                             <div>
-                                <p style="margin:0; font-size:12.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.6px; line-height:1.4;">${nomAssoc}</p>
-                                ${contactAssoc ? `<p style="margin:4px 0 0; font-size:9px; color:#444;">${contactAssoc}</p>` : ''}
+                                <p style="margin:0; font-size:12.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.6px; line-height:1.4;">${esc(r.nomAssoc)}</p>
+                                ${r.contactAssoc ? '<p style="margin:4px 0 0; font-size:9px; color:#444;">' + esc(r.contactAssoc) + '</p>' : ''}
                             </div>
                         </div>
                         <div style="text-align:right; flex-shrink:0;">
-                            <p style="margin:0; font-size:18px; font-weight:bold; letter-spacing:1.2px;">${titreP1}</p>
-                            <p style="margin:3px 0 0; font-size:11px; font-weight:bold; letter-spacing:.8px;">${titreP2}</p>
-                            <p style="margin:5px 0 0; font-size:10px; font-style:italic;">${titreP3}</p>
+                            <p style="margin:0; font-size:18px; font-weight:bold; letter-spacing:1.2px;">RAPPORT DE GESTION</p>
+                            <p style="margin:3px 0 0; font-size:11px; font-weight:bold; letter-spacing:.8px;">${esc(r.libellePeriode)}</p>
+                            <p style="margin:5px 0 0; font-size:10px; font-style:italic;">Établi le ${esc(r.genereLe)}</p>
                         </div>
                     </div>
 
-                    <div style="white-space:pre-wrap; font-size:12px; line-height:1.6; text-align:justify; margin-top:16px;">${synthese}</div>
+                    <p style="margin:14px 0 0; font-size:10.5px; font-style:italic;">Objet : ${esc(r.demande)}</p>
+
+                    <div style="white-space:pre-wrap; font-size:12px; line-height:1.6; text-align:justify; margin-top:10px;">${esc(r.synthese)}</div>
 
                     ${sections}
 
-                    <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">${d.type === 'jour' ? 'III. BILAN FINANCIER DEPUIS LA CRÉATION' : 'III. BILAN DE LA PÉRIODE'}</p>
-                    <table style="width:100%; border-collapse:collapse;">
-                        ${ligneFin('Cotisations mensuelles (' + Fi.nbMens + ' paiements)', F(Fi.totMens) + ' FCFA')}
-                        ${ligneFin('Cotisations exceptionnelles (' + Fi.nbExc + ' cotisations)', F(Fi.totExc) + ' FCFA')}
-                        ${ligneFin('Total des entrées', F(Fi.totMens + Fi.totExc) + ' FCFA', true)}
-                        ${ligneFin('Dépenses (' + Fi.nbDep + ' opérations)', '− ' + F(Fi.totDep) + ' FCFA')}
-                        ${ligneFin('SOLDE', F(Fi.solde) + ' FCFA', true)}
-                    </table>
-
                     <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:flex-end;">
-                        <p style="margin:0; font-size:9px; color:#555;">Document généré par MUTASSO — Effectif : ${d.effectif} membres.</p>
+                        <p style="margin:0; font-size:9px; color:#555;">Document généré par MUTASSO — Effectif : ${r.effectif} membres.</p>
                         <div style="text-align:center; width:250px;">
-                            <p style="margin:0; font-size:11px; font-style:italic;">Fait le ${auj.toLocaleDateString('fr-FR')}</p>
+                            <p style="margin:0; font-size:11px; font-style:italic;">Fait le ${esc(r.genereLe)}</p>
                             <p style="margin:14px 0 34px; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:.5px;">Le Secrétariat Général</p>
                             <div style="border-top:1px dashed #555; width:100%;"></div>
                         </div>
