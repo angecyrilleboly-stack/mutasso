@@ -1339,14 +1339,17 @@
             });
         }
 
-        // Abonne CET appareil aux notifications de l'association
-        // (admin comme membre) : préviendra des événements comme
-        // une nouvelle cotisation exceptionnelle.
+        // Abonne CET appareil aux notifications — MEMBRES
+        // uniquement : ce sont eux qui doivent être informés des
+        // événements (cotisation exceptionnelle, sortie d'argent).
+        // Le gestionnaire les enregistre : pas de cloche ni de
+        // notifications pour lui.
         // manuel=true : déclenché par un tap (cloche) — affiche
         // les erreurs, indispensable sur iOS (permission = geste).
         async function activerNotificationsPush(manuel) {
             const cloche = document.getElementById('btn-notif');
             const montrerCloche = v => { if (cloche) cloche.classList.toggle('hidden', !v); };
+            if (window.roleActif !== 'membre') { montrerCloche(false); return; }
             if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
                 montrerCloche(false);
                 if (manuel) showToast('Notifications non prises en charge par ce navigateur.', 'error');

@@ -49,6 +49,7 @@ async function initStore() {
       compte_id TEXT NOT NULL,
       endpoint TEXT NOT NULL,
       cles JSONB NOT NULL,
+      role TEXT NOT NULL DEFAULT 'membre',
       cree_le TEXT,
       UNIQUE (compte_id, endpoint)
     );
@@ -57,6 +58,8 @@ async function initStore() {
       valeur TEXT NOT NULL
     );
   `);
+  // Anciennes bases : colonne role ajoutée après coup
+  await pool.query(`ALTER TABLE abonnements_push ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'membre'`);
   const r = await pool.query('SELECT COUNT(*)::int AS n FROM comptes');
   console.log('Base PostgreSQL connectée (' + r.rows[0].n + ' compte(s) enregistré(s)).');
   return { mode: 'postgres' };
@@ -119,16 +122,20 @@ async function pgLireFichier(compteId, nom) {
 }
 
 /* ============ Abonnements push (notifications) ============ */
-async function pgAjouterAbonnementPush(compteId, endpoint, cles) {
+// role : 'membre' (reçoit les notifications) ou 'admin' (n'en
+// reçoit pas — le gestionnaire émet, il n'est pas destinataire)
+async function pgAjouterAbonnementPush(compteId, endpoint, cles, role) {
   await pool.query(
-    `INSERT INTO abonnements_push (compte_id, endpoint, cles, cree_le) VALUES ($1, $2, $3, $4)
-     ON CONFLICT (compte_id, endpoint) DO UPDATE SET cles = EXCLUDED.cles`,
-    [compteId, endpoint, JSON.stringify(cles), new Date().toISOString()]
+    `INSERT INTO abonnements_push (compte_id, endpoint, cles, role, cree_le) VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (compte_id, endpoint) DO UPDATE SET cles = EXCLUDED.cles, role = EXCLUDED.role`,
+    [compteId, endpoint, JSON.stringify(cles), role || 'membre', new Date().toISOString()]
   );
 }
 
-async function pgListerAbonnementsPush(compteId) {
-  const r = await pool.query('SELECT endpoint, cles FROM abonnements_push WHERE compte_id = $1', [compteId]);
+async function pgListerAbonnementsPush(compteId, role) {
+  const r = role
+    ? await pool.query('SELECT endpoint, cles FROM abonnements_push WHERE compte_id = $1 AND role = $2', [compteId, role])
+    : await pool.query('SELECT endpoint, cles FROM abonnements_push WHERE compte_id = $1', [compteId]);
   return r.rows.map(l => ({ endpoint: l.endpoint, keys: l.cles }));
 }
 

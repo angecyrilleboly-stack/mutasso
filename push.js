@@ -70,26 +70,29 @@ async function clePublique() {
 }
 
 /* ============ Abonnements ============ */
-// Enregistre l'abonnement d'un appareil pour une association
-async function abonner(subscription, idCompte) {
+// Enregistre l'abonnement d'un appareil pour une association.
+// role : 'membre' (destinataire des notifications) ou 'admin'
+// (le gestionnaire enregistre les événements, il n'est pas notifié).
+async function abonner(subscription, idCompte, role) {
   if (!subscription || !subscription.endpoint) return { status: 'error', msg: 'Abonnement invalide.' };
   if (config.MODE_PG) {
-    await store.pgAjouterAbonnementPush(idCompte, subscription.endpoint, subscription.keys || {});
+    await store.pgAjouterAbonnementPush(idCompte, subscription.endpoint, subscription.keys || {}, role || 'membre');
   } else {
     if (abosFichiers === null) abosFichiers = lireAbosFichiers();
     abosFichiers = abosFichiers.filter(a => a.endpoint !== subscription.endpoint);
-    abosFichiers.push({ compteId: idCompte, endpoint: subscription.endpoint, keys: subscription.keys || {} });
+    abosFichiers.push({ compteId: idCompte, endpoint: subscription.endpoint, keys: subscription.keys || {}, role: role || 'membre' });
     fs.mkdirSync(path.dirname(PUSH_FILE), { recursive: true });
     fs.writeFileSync(PUSH_FILE, JSON.stringify(abosFichiers, null, 2));
   }
   return { status: 'success', msg: 'Notifications activées sur cet appareil.' };
 }
 
-// Liste les abonnements d'une association (les deux modes)
-async function lister(idCompte) {
-  if (config.MODE_PG) return store.pgListerAbonnementsPush(idCompte);
+// Liste les abonnements d'une association (les deux modes).
+// role facultatif : limite aux abonnements de ce rôle.
+async function lister(idCompte, role) {
+  if (config.MODE_PG) return store.pgListerAbonnementsPush(idCompte, role);
   if (abosFichiers === null) abosFichiers = lireAbosFichiers();
-  return abosFichiers.filter(a => a.compteId === idCompte);
+  return abosFichiers.filter(a => a.compteId === idCompte && (!role || a.role === role));
 }
 
 // Nettoie un abonnement invalide (appareil désinstallé, etc.)
@@ -101,10 +104,12 @@ async function retirer(endpoint) {
   fs.writeFileSync(PUSH_FILE, JSON.stringify(abosFichiers, null, 2));
 }
 
-// Envoie une notification à TOUS les appareils d'une association.
+// Envoie une notification à tous les APPAREILS DES MEMBRES d'une
+// association (le gestionnaire enregistre l'événement : il n'est
+// pas destinataire). Chaque association ne notifie que SES membres.
 async function notifierTous(idCompte, titre, corps) {
   if (!(await initialiser())) return { envoyees: 0 };
-  const abos = await lister(idCompte);
+  const abos = await lister(idCompte, 'membre');
   const payload = JSON.stringify({ title: titre, body: corps, tag: 'mutasso-' + Date.now() });
   let envoyees = 0;
   await Promise.all(abos.map(async a => {

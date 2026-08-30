@@ -358,7 +358,9 @@ async function clePubliquePush() { return push.clePublique(); }
 
 async function abonnerPush(subscription) {
   if (!compteActif) return { status: "error", msg: "Aucun compte actif." };
-  return push.abonner(subscription, compteActif.id);
+  // Rôle de la session : seuls les MEMBRES reçoivent les
+  // notifications d'événements (le gestionnaire les émet).
+  return push.abonner(subscription, compteActif.id, accesMembre ? "membre" : "admin");
 }
 
 // Test personnel : notifie UNIQUEMENT l'appareil qui demande
