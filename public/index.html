@@ -320,6 +320,11 @@
         </div>
     </div>
 
+<!-- TEMPLATE RAPPORT (PDF · démasqué pendant la capture, comme le reçu) -->
+    <div id="report-container" class="hidden">
+        <div id="report-content" style="width:700px;background:#ffffff;"></div>
+    </div>
+
 <!-- TEMPLATE REÇU (PDF A4 · une page) -->
     <div id="receipt-container" class="hidden">
         <div id="receipt-content" style="width:794px;background:#ffffff;font-family:'Plus Jakarta Sans',Arial,sans-serif;">
@@ -1683,18 +1688,25 @@
 
         function telechargerRapportPDF(d, synthese) {
             const auj = new Date();
-            const element = construireRapportElement(d, synthese);
-            element.style.position = 'fixed';
-            element.style.left = '-10000px';
-            element.style.top = '0';
-            document.body.appendChild(element);
+            // Même technique que le reçu : conteneur permanent dans
+            // la page, démasqué le temps de la capture. (Un élément
+            // positionné hors-écran en fixed produisait un PDF vierge :
+            // html2canvas peint les éléments fixes au mauvais décalage.)
+            const conteneur = document.getElementById('report-container');
+            const zone = document.getElementById('report-content');
+            zone.innerHTML = '';
+            zone.appendChild(construireRapportElement(d, synthese));
+            conteneur.classList.remove('hidden');
             const opt = {
                 margin: [0.5, 0.5, 0.6, 0.5],
                 filename: `Rapport_MUTASSO_${auj.toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`,
                 html2canvas: { scale: 2 },
                 jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
             };
-            html2pdf().set(opt).from(element).save().then(() => element.remove());
+            html2pdf().set(opt).from(zone).save().then(
+                () => { conteneur.classList.add('hidden'); zone.innerHTML = ''; showToast('Rapport PDF généré !'); },
+                () => { conteneur.classList.add('hidden'); zone.innerHTML = ''; showToast('Échec de génération du rapport', 'error'); }
+            );
         }
 
         function construireRapportElement(d, synthese) {
