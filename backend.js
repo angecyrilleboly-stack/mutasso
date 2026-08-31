@@ -612,9 +612,15 @@ function getAssocInfos() { const s = SS.getSheetByName(SHEET_INFOS);
   const d = s.getDataRange().getValues(); if (d.length <= 1) return { nom: "", tel: "", adresse: "", email: "", logo: "" };
   return { nom: d[1][0]||"", tel: d[1][1]||"", adresse: d[1][2]||"", email: d[1][3]||"", logo: d[1][4]||"" }; }
 
-function saveAssocInfos(d) { const s = SS.getSheetByName(SHEET_INFOS);
+function saveAssocInfos(d) {
+  // Garde-fou : sans classeur actif (contexte de la requête), on ne
+  // écrit JAMAIS — cela éviterait d'écraser la fiche d'une AUTRE
+  // association avec un classeur resté en mémoire.
+  if (!SS) return { status: "error", msg: "Aucun espace actif." };
+  const s = SS.getSheetByName(SHEET_INFOS);
   if (s.getLastRow() > 1) s.deleteRows(2, s.getLastRow() - 1); s.appendRow([d.nom, d.tel, d.adresse, d.email, d.logo]);
-  return { status: "success", msg: "Identité mise à jour !" }; }
+  return { status: "success", msg: "Identité mise à jour !" };
+}
 
 function getBureau() { const v = SS.getSheetByName(SHEET_BUREAU).getDataRange().getValues();
   return v.length <= 1 ? [] : v.slice(1).map(r => ({ nom: r[1], poste: r[2] }));

@@ -24,6 +24,16 @@ let registreSale = false;
 async function lireRegistre() {
   // Force une nouvelle lecture depuis la base pour les comptes modifiés
   if (config.MODE_PG) {
+    // Sécurité critique : si des changements du registre ne sont
+    // pas encore persistés (écriture différée en fin de requête),
+    // on les écrit AVANT de relire — sinon la relecture écraserait
+    // les ajouts en attente (ex : inscription d'une association
+    // suivie de l'ouverture de son propre classeur : le compte
+    // fraîchement créé disparaissait et la connexion échouait).
+    if (registreSale && Array.isArray(registre) && registre.length) {
+      registreSale = false;
+      await store.pgSauverRegistre(registre);
+    }
     registre = await store.pgLireRegistre();
   } else {
     try { registre = JSON.parse(fs.readFileSync(REGISTRE_FILE, 'utf8')); }
