@@ -1370,17 +1370,21 @@
                 if (!r || !r.cle) { montrerCloche(true); if (manuel) showToast('Notifications indisponibles côté serveur.', 'error'); return; }
                 const enr = await navigator.serviceWorker.register('sw.js');
                 await navigator.serviceWorker.ready;
-                const dejaAbonne = await enr.pushManager.getSubscription();
-                const sub = dejaAbonne || await enr.pushManager.subscribe({
+                // Réabonnement SYSTÉMATIQUE : l'abonnement serveur est
+                // toujours resynchronisé avec cette session (compte +
+                // rôle). Une mise à jour du service worker (rechargement
+                // auto) ou un changement d'association ne peut donc pas
+                // laisser d'abonnement périmé silencieusement.
+                const sub = await enr.pushManager.getSubscription() || await enr.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64VersUint8(r.cle)
                 });
                 const res = await api('abonnerPush', sub.toJSON());
                 if (res && res.status === 'success') {
                     montrerCloche(false);
-                    // Test immédiat aux premières activation / demande
-                    // manuelle : la notification prouve que ça marche.
-                    if (!dejaAbonne || manuel) {
+                    // Test à la première activation de CETTE session ou
+                    // sur demande manuelle : preuve visuelle immédiate.
+                    if (manuel) {
                         await api('testPushPerso', sub.toJSON()).catch(() => {});
                         showToast('Notifications activées — test envoyé sur cet appareil.');
                     }
@@ -1390,6 +1394,9 @@
                 }
             } catch (e) {
                 console.error('Push non activé :', e);
+                // Le rechargement automatique (mise à jour du service
+                // worker) peut couper l'abonnement en cours : la cloche
+                // reste visible pour relancer d'un simple tap.
                 montrerCloche(true);
                 if (manuel) showToast('Activation impossible pour le moment.', 'error');
             }

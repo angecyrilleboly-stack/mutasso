@@ -122,8 +122,15 @@ async function notifierTous(idCompte, titre, corps) {
       await webpush.sendNotification({ endpoint: a.endpoint, keys: a.keys }, payload);
       envoyees++;
     } catch (e) {
-      // 404/410 : abonnement expiré -> on le retire
-      if (e.statusCode === 404 || e.statusCode === 410) await retirer(a.endpoint).catch(() => {});
+      const code = e && e.statusCode;
+      // 404/410 : abonnement expiré chez le service push.
+      // 400/403 : clés d'abonnement invalides ou refusées — l'appareil
+      // doit se réabonner ; on retire l'abonnement inutilisable pour
+      // éviter les fantômes (le membre sera réabonné à sa prochaine
+      // connexion : la cloche réapparaît si nécessaire).
+      if (code === 404 || code === 410 || code === 400 || code === 403) {
+        await retirer(a.endpoint).catch(() => {});
+      }
     }
   }));
   return { envoyees: envoyees, total: abos.length };
