@@ -696,9 +696,8 @@
                 <div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
                     <div>
                         <div class="app-card filter-bar mb-6">
-                            <div class="flex-1 min-w-[180px]"><label class="label-style">Filtrage</label><select id="search-m-mois" class="input-field rounded-xl"><option value="">Tous les mois</option><option>Janvier</option><option>Février</option><option>Mars</option><option>Avril</option><option>Mai</option><option>Juin</option><option>Juillet</option><option>Août</option><option>Septembre</option><option>Octobre</option><option>Novembre</option><option>Décembre</option></select></div>
-                            <div class="flex-1 min-w-[130px]"><label class="label-style">Année</label><input type="number" id="search-m-annee" value="2026" class="input-field rounded-xl"></div>
-                            <button onclick="loadMensuel()" class="btn-primary"><i data-lucide="search" class="w-4 h-4"></i>Chercher</button>
+                            <div class="flex-1 min-w-[180px]"><label class="label-style">Filtrage</label><select id="search-m-mois" class="input-field rounded-xl" onchange="loadMensuel()"><option value="">Tous les mois</option><option>Janvier</option><option>Février</option><option>Mars</option><option>Avril</option><option>Mai</option><option>Juin</option><option>Juillet</option><option>Août</option><option>Septembre</option><option>Octobre</option><option>Novembre</option><option>Décembre</option></select></div>
+                            <div class="flex-1 min-w-[130px]"><label class="label-style">Année</label><input type="number" id="search-m-annee" value="2026" class="input-field rounded-xl" onchange="loadMensuel()"></div>
                         </div>
                         <div class="app-card overflow-hidden">
                             <table class="app-table">
@@ -746,8 +745,7 @@
                 <div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6 items-start">
                     <div>
                         <div class="app-card filter-bar mb-6">
-                            <div class="flex-1 min-w-[200px]"><label class="label-style">Motif</label><select id="search-e-motif" class="input-field rounded-xl"><option value="">Toutes</option></select></div>
-                            <button onclick="loadExcep()" class="btn-primary"><i data-lucide="search" class="w-4 h-4"></i>Filtrer</button>
+                            <div class="flex-1 min-w-[200px]"><label class="label-style">Motif</label><select id="search-e-motif" class="input-field rounded-xl" onchange="loadExcep()"><option value="">Toutes</option></select></div>
                         </div>
                         <div class="app-card overflow-hidden">
                             <table class="app-table">
