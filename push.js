@@ -73,10 +73,17 @@ async function clePublique() {
 // Enregistre l'abonnement d'un appareil pour une association.
 // role : 'membre' (destinataire des notifications) ou 'admin'
 // (le gestionnaire enregistre les événements, il n'est pas notifié).
+//
+// Un appareil physique ne possède qu'UN abonnement push (limite des
+// navigateurs PWA). Quand il se connecte à une autre association, son
+// unique abonnement MIGRE vers celle-ci : l'appareil est retiré de
+// toutes les AUTRES associations, sinon il continuerait à recevoir
+// leurs notifications — chaque membre ne doit être notifié que par
+// l'association de sa session courante.
 async function abonner(subscription, idCompte, role) {
   if (!subscription || !subscription.endpoint) return { status: 'error', msg: 'Abonnement invalide.' };
   if (config.MODE_PG) {
-    await store.pgAjouterAbonnementPush(idCompte, subscription.endpoint, subscription.keys || {}, role || 'membre');
+    await store.pgMigrerAbonnementPush(idCompte, subscription.endpoint, subscription.keys || {}, role || 'membre');
   } else {
     if (abosFichiers === null) abosFichiers = lireAbosFichiers();
     abosFichiers = abosFichiers.filter(a => a.endpoint !== subscription.endpoint);

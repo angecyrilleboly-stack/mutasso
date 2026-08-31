@@ -124,6 +124,24 @@ async function pgLireFichier(compteId, nom) {
 /* ============ Abonnements push (notifications) ============ */
 // role : 'membre' (reçoit les notifications) ou 'admin' (n'en
 // reçoit pas — le gestionnaire émet, il n'est pas destinataire)
+// MIGRATION : l'abonnement d'un appareil est retiré de TOUTES les
+// autres associations avant d'être (ré)inséré dans celle-ci — un
+// appareil suit l'association de sa session courante, uniquement.
+async function pgMigrerAbonnementPush(compteId, endpoint, cles, role) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM abonnements_push WHERE endpoint = $1', [endpoint]);
+    await client.query(
+      'INSERT INTO abonnements_push (compte_id, endpoint, cles, role, cree_le) VALUES ($1, $2, $3, $4, $5)',
+      [compteId, endpoint, JSON.stringify(cles), role || 'membre', new Date().toISOString()]
+    );
+    await client.query('COMMIT');
+  } catch (err) { await client.query('ROLLBACK'); throw err; }
+  finally { client.release(); }
+}
+
+// Variante sans migration (usage interne)
 async function pgAjouterAbonnementPush(compteId, endpoint, cles, role) {
   await pool.query(
     `INSERT INTO abonnements_push (compte_id, endpoint, cles, role, cree_le) VALUES ($1, $2, $3, $4, $5)
@@ -157,4 +175,4 @@ async function pgEcrireParam(cle, valeur) {
   );
 }
 
-module.exports = { initStore, fermerStore, pgLireRegistre, pgSauverRegistre, pgLireClasseur, pgEcrireClasseur, pgEnregistrerFichier, pgLireFichier, pgAjouterAbonnementPush, pgListerAbonnementsPush, pgSupprimerAbonnementPush, pgLireParam, pgEcrireParam };
+module.exports = { initStore, fermerStore, pgLireRegistre, pgSauverRegistre, pgLireClasseur, pgEcrireClasseur, pgEnregistrerFichier, pgLireFichier, pgAjouterAbonnementPush, pgMigrerAbonnementPush, pgListerAbonnementsPush, pgSupprimerAbonnementPush, pgLireParam, pgEcrireParam };
