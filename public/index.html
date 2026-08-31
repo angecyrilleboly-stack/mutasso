@@ -1960,7 +1960,7 @@
                 document.getElementById('table-mensuel').innerHTML = d.length ? d.map(r => `<tr>
                     <td class="t-name">${esc(r.nom)}</td>
                     <td><span class="pill periode-pill"><i data-lucide="calendar" class="w-3 h-3"></i>${esc(r.periode)}</span></td>
-                    <td class="td-amount td-in">${fmt(r.montant)} F</td>
+                    <td class="td-amount td-in">${fmt(r.montant)} FCFA</td>
                     <td class="text-right !pr-8"><div class="flex gap-1.5 justify-end"><button onclick="generateReceipt('${esc(r.nom)}', 'Mensualité: ${esc(r.periode)}', ${r.montant}, '${esc(r.date)}')" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button></div></td>
                 </tr>`).join('') : emptyRow(4, 'Aucun paiement trouvé');
                 lucide.createIcons();
@@ -1981,7 +1981,7 @@
                 document.getElementById('table-excep').innerHTML = d.length ? d.map(r => `<tr>
                     <td class="t-name">${esc(r.nom)}</td>
                     <td><span class="pill motif-pill"><i data-lucide="star" class="w-3 h-3"></i>${esc(r.motif)}</span></td>
-                    <td class="td-amount td-viol">${fmt(r.montant)} F</td>
+                    <td class="td-amount td-viol">${fmt(r.montant)} FCFA</td>
                     <td class="text-right !pr-8"><div class="flex gap-1.5 justify-end"><button onclick="generateReceipt('${esc(r.nom)}', 'Spéciale: ${esc(r.motif)}', ${r.montant}, '${esc(r.date)}')" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button></div></td>
                 </tr>`).join('') : emptyRow(4, 'Aucune cotisation trouvée');
                 lucide.createIcons();
