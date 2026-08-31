@@ -937,9 +937,150 @@ function redigerSyntheseRapport(demande, C) {
   return p.join('\n\n');
 }
 
-// Le PROMPT devient le document : seules les sections demandées
+// Contexte COMPLET de l'association (JSON) transmis à l'IA : elle
+// n'a le droit d'utiliser QUE ces données — aucun chiffre inventé.
+function contexteCompletRapport() {
+  const infos = getAssocInfos();
+  const membres = getMembres();
+  const bureau = SS.getSheetByName(SHEET_BUREAU).getDataRange().getValues().slice(1)
+    .filter(r => r[1] && String(r[1]).trim() !== "")
+    .map(r => ({ nom: String(r[1]), poste: String(r[2] || ''), nommeLe: r[3] instanceof Date ? r[3].toLocaleDateString('fr-FR') : String(r[3] || '') }));
+  const lignesMens = SS.getSheetByName(SHEET_MENSUEL).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
+  const lignesExc = SS.getSheetByName(SHEET_EXCEP).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
+  const lignesDep = SS.getSheetByName(SHEET_DEPENSES).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
+  const dFR = d => d instanceof Date ? d.toLocaleDateString('fr-FR') : String(d || '');
+
+  const auj = new Date();
+  const moisCourant = MOIS_ADMIN[auj.getMonth()] + ' ' + auj.getFullYear();
+  const etat = getEtatPaiements('mensuel', MOIS_ADMIN[auj.getMonth()], String(auj.getFullYear()));
+  const cfg = getMensualiteConfig();
+
+  return {
+    association: { nom: infos.nom, contact: infos.tel, email: infos.email, mensualite: cfg ? cfg.montant : 0, dateDuJour: auj.toLocaleDateString('fr-FR'), moisCourant: moisCourant },
+    effectif: membres.length,
+    membres: membres.map(m => ({ nom: m.nom, prenom: m.prenom, contact: m.contact, ville: m.ville, sexe: m.sexe })),
+    bureau: bureau,
+    mensualites: lignesMens.map(r => ({ membre: String(r[1]), mois: String(r[2]), annee: String(r[3]), montant: Number(r[4]) || 0, payeLe: dFR(r[5]) })),
+    exceptionnelles: lignesExc.map(r => ({ membre: String(r[1]), motif: String(r[2]), montant: Number(r[3]) || 0, payeLe: dFR(r[4]) })),
+    depenses: lignesDep.map(r => ({ objet: String(r[0]), montant: Number(r[2]) || 0, date: dFR(r[3]) })),
+    mensualitesMoisCourant: {
+      aJour: etat.filter(x => x.aPaye).map(x => x.nom + ' ' + x.prenom),
+      enRetard: etat.filter(x => !x.aPaye).map(x => x.nom + ' ' + x.prenom)
+    },
+    // AGRÉGATS OFFICIELS calculés par l'application : exacts par
+    // construction — l'IA doit les reprendre tels quels pour tout
+    // total ou classement (elle ne sait pas sommer 400+ lignes).
+    agregats: {
+      cotisationsTotalesParMembre: (function () {
+        const t = {};
+        lignesMens.forEach(r => { const n = String(r[1]); t[n] = t[n] || { mensuelles: 0, exceptionnelles: 0 }; t[n].mensuelles += Number(r[4]) || 0; });
+        lignesExc.forEach(r => { const n = String(r[1]); t[n] = t[n] || { mensuelles: 0, exceptionnelles: 0 }; t[n].exceptionnelles += Number(r[3]) || 0; });
+        return Object.keys(t).map(n => ({ membre: n, mensuelles: t[n].mensuelles, exceptionnelles: t[n].exceptionnelles, total: t[n].mensuelles + t[n].exceptionnelles }))
+          .sort((a, b) => b.total - a.total);
+      })(),
+      mensualitesParMois: (function () {
+        const t = {};
+        lignesMens.forEach(r => { const k = String(r[2]) + ' ' + r[3]; t[k] = t[k] || { paiements: 0, total: 0 }; t[k].paiements++; t[k].total += Number(r[4]) || 0; });
+        return t;
+      })(),
+      exceptionnellesParMotif: (function () {
+        const t = {};
+        lignesExc.forEach(r => { const k = String(r[2]); t[k] = t[k] || { cotisations: 0, total: 0 }; t[k].cotisations++; t[k].total += Number(r[3]) || 0; });
+        return t;
+      })(),
+      depensesParObjet: (function () {
+        const t = {};
+        lignesDep.forEach(r => { const k = String(r[0]); t[k] = t[k] || { sorties: 0, total: 0 }; t[k].sorties++; t[k].total += Number(r[2]) || 0; });
+        return t;
+      })(),
+      bilan: {
+        totalMensuelles: lignesMens.reduce((a, r) => a + (Number(r[4]) || 0), 0),
+        totalExceptionnelles: lignesExc.reduce((a, r) => a + (Number(r[3]) || 0), 0),
+        totalDepenses: lignesDep.reduce((a, r) => a + (Number(r[2]) || 0), 0),
+        nbPaiementsMensuels: lignesMens.length, nbExceptionnelles: lignesExc.length, nbDepenses: lignesDep.length
+      }
+    }
+  };
+}
+
+// Appelle Gemini en imposant une réponse JSON strict.
+async function appelerGeminiJSON(prompt) {
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY;
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.2,
+      response_mime_type: "application/json"
+    }
+  };
+  const response = await fetch(url, { method: "post", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const result = JSON.parse(await response.text());
+  if (result.error) throw new Error(result.error.message);
+  const texte = result.candidates[0].content.parts[0].text;
+  return texte.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+}
+
+// Le PROMPT pilote le rapport : l'IA structure la réponse à partir
+// des données réelles ; en cas d'échec API, le moteur de règles
+// (analyserDemandeRapport) prend le relais.
+async function getRapportLibre(demande) {
+  if (!demande || !String(demande).trim()) return { status: "error", msg: "Décrivez d'abord le rapport souhaité." };
+  const auj = new Date();
+  const infos = getAssocInfos();
+  const nomAssoc = (infos.nom || "L'Association").toUpperCase();
+  const contactAssoc = [infos.tel, infos.email].filter(Boolean).join(' • ');
+
+  const commun = {
+    status: "success", type: "libre",
+    demande: String(demande).trim(),
+    libellePeriode: 'SUR MESURE',
+    genereLe: auj.toLocaleDateString('fr-FR'),
+    nomAssoc: nomAssoc, contactAssoc: contactAssoc, logo: infos.logo || "",
+    effectif: getMembres().length
+  };
+
+  try {
+    if (!GEMINI_API_KEY) throw new Error('Clé IA absente');
+    const ctx = contexteCompletRapport();
+    const prompt = `Tu es le Secrétaire Général de l'association "${nomAssoc}". On te fournit les DONNÉES de l'association (JSON) et une DEMANDE en français. Produis UNIQUEMENT un JSON valide (aucun texte autour) exactement de cette forme :
+{"synthese": "...", "sections": [{"titre": "I. ...", "entetes": ["...", "..."], "lignes": [["...", "..."], ...]}, ...]}
+
+DEMANDE : ${String(demande).trim()}
+
+RÈGLES ABSOLUES :
+1. Le rapport répond EXACTEMENT à la demande : les sections correspondent précisément à ce qui est demandé, dans cet ordre. Si la demande porte sur une seule chose (ex : liste des membres du bureau), le rapport ne contient QUE cette chose.
+2. N'utilise AUCUN nom, montant, date ou chiffre absent des DONNÉES. Aucune invention, aucune estimation.
+3. CALCULS : pour TOUT total, classement, décompte ou moyenne globale, utilise les « agregats » fournis dans les DONNÉES — ils sont calculés par l'application et EXACTS : reprends leurs valeurs telles quelles, sans les recalculer ni les modifier. Les listes détaillées (mensualites, exceptionnelles, depenses) servent aux listes nominales et au filtrage par période. Un montant faux invalide le rapport entier.
+4. "synthese" : 2 à 4 paragraphes denses en français administratif soutenu (passé composé, vocabulaire officiel : diligences, recouvrement, conformément…), qui répondent à la demande en reprenant les chiffres pertinents des données. Pas de titre dans la synthèse, pas de markdown.
+5. "sections" : 1 à 6 sections. Titres numérotés en chiffres romains (I., II., III.…), en MAJUSCULES, décrivant leur contenu. 2 à 4 entetes de colonnes courts. Une ligne par élément pour une liste. Cellules = textes courts (montants au format "12 345 FCFA").
+6. Si une période est déduisible de la demande (mois, année, intervalle), filtre les données datées en conséquence (dates "jj/mm/aaaa").
+7. Réponds en JSON strict, sans balise markdown.
+
+DONNÉES :
+${JSON.stringify(ctx)}`;
+
+    const brut = await appelerGeminiJSON(prompt);
+    const r = JSON.parse(brut);
+    if (!r || typeof r.synthese !== 'string' || !Array.isArray(r.sections) || !r.sections.length) throw new Error('Structure IA invalide');
+    const romainsFixes = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+    const sections = r.sections.slice(0, 6).map((s, i) => ({
+      titre: romainsFixes[i] + '. ' + String(s.titre || '').replace(/^(?:[IVXivx]+|\d+)\s*[.\-)]\s*/, '').replace(/^(?:SECTION|Section)\s*\d*\s*[.\-)]?\s*/i, '').trim(),
+      entetes: Array.isArray(s.entetes) ? s.entetes.slice(0, 4).map(e => String(e)) : ['Désignation', 'Détail'],
+      monetaire: /FCFA/i.test(JSON.stringify(s.lignes || []).slice(0, 400)),
+      lignes: (Array.isArray(s.lignes) ? s.lignes : []).slice(0, 200).map(l => (Array.isArray(l) ? l : [l]).slice(0, 4).map(c => String(c)))
+    })).filter(s => s.lignes.length);
+
+    return { ...commun, moteur: 'ia', synthese: r.synthese.trim(), sections: sections, solde: '' };
+  } catch (e) {
+    console.error('Rapport IA (repli sur le moteur de règles) :', e && e.message);
+    const r = getRapportLibreRegles(demande);
+    return { ...r, moteur: 'regles' };
+  }
+}
+
+// Moteur de REPLI (sans IA) : intentions détectées par règles
 // sont produites (bureau, effectif, retards, finances, bilan).
-function getRapportLibre(demande) {
+function getRapportLibreRegles(demande) {
   if (!demande || !String(demande).trim()) return { status: "error", msg: "Décrivez d'abord le rapport souhaité." };
   const analyse = analyserDemandeRapport(demande);
   const I = analyse.intents;

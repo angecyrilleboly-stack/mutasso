@@ -1639,7 +1639,7 @@
             const original = btn.innerHTML;
             const setBtn = h => { btn.disabled = !!h; btn.innerHTML = h || original; if (h) lucide.createIcons(); };
             try {
-                setBtn('<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Rédaction du rapport…');
+                setBtn('<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> L\'IA analyse vos données (≈ 30 s)…');
                 const r = await api('getRapportLibre', demande);
                 if (!r || r.status === 'error') { showToast((r && r.msg) || 'Rapport impossible.', 'error'); setBtn(''); return; }
                 setBtn('<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> PDF en cours…');
