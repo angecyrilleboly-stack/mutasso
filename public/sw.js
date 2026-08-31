@@ -7,7 +7,7 @@
 //  - Ressources statiques : cache d'abord + mise à jour en arrière-plan
 //  - API /api/* : toujours réseau (données à jour), jamais caché
 // ============================================================
-const CACHE = 'mutasso-v3';
+const CACHE = 'mutasso-v4';
 
 const SHELL = [
   '/',

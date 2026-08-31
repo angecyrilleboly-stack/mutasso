@@ -242,7 +242,7 @@
             <!-- Pitch (pleine page verte) -->
             <div class="hidden lg:flex flex-col justify-center gap-11 py-6">
                 <div class="flex items-center gap-4">
-                    <div class="brand-mark" style="width:52px;height:52px;border-radius:17px"><i data-lucide="heart-handshake" class="w-6 h-6"></i></div>
+                    <div class="brand-mark overflow-hidden" style="width:52px;height:52px;border-radius:17px"><img src="icons/icon-192.png" alt="MUTASSO" style="width:100%;height:100%;object-fit:cover"></div>
                     <div><p class="brand-name" style="font-size:24px">MUTASSO</p><p class="brand-sub">Gestion associative</p></div>
                 </div>
                 <div>
@@ -260,7 +260,7 @@
             <div class="flex items-center justify-center lg:justify-end w-full">
                 <div class="w-full max-w-md">
                     <div class="flex items-center gap-3 mb-7 lg:hidden">
-                        <div class="brand-mark"><i data-lucide="heart-handshake" class="w-5 h-5"></i></div>
+                        <div class="brand-mark overflow-hidden"><img src="icons/icon-192.png" alt="MUTASSO" style="width:100%;height:100%;object-fit:cover"></div>
                         <div><p class="brand-name" style="color:#ffffff;font-size:20px">MUTASSO</p></div>
                     </div>
                     <div class="app-card p-8" style="box-shadow:0 45px 90px -25px rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.14)">
@@ -390,7 +390,7 @@
     <!-- ============ LAYOUT ============ -->
     <aside class="sidebar">
         <div class="brand">
-            <div class="brand-mark overflow-hidden" id="brand-mark"><i data-lucide="heart-handshake" class="w-5 h-5"></i></div>
+            <div class="brand-mark overflow-hidden" id="brand-mark"><img src="icons/icon-192.png" alt="MUTASSO" style="width:100%;height:100%;object-fit:cover"></div>
             <div class="min-w-0"><p class="brand-name truncate" id="brand-nom" title="MUTASSO">MUTASSO</p><p class="brand-sub" id="brand-sub">Gestion associative</p></div>
         </div>
         <p class="nav-label">Navigation</p>
@@ -1277,11 +1277,11 @@
             const mark = document.getElementById('brand-mark');
             mark.innerHTML = infos.logo
                 ? `<img src="${infos.logo}" style="width:100%;height:100%;object-fit:cover">`
-                : `<i data-lucide="heart-handshake" class="w-5 h-5"></i>`;
+                : `<img src="icons/icon-192.png" alt="MUTASSO" style="width:100%;height:100%;object-fit:cover">`;
             const av = document.getElementById('side-av');
             av.innerHTML = infos.logo
                 ? `<img src="${infos.logo}" style="width:100%;height:100%;object-fit:cover">`
-                : `<i data-lucide="building-2" class="w-4 h-4"></i>`;
+                : `<img src="icons/icon-192.png" alt="MUTASSO" style="width:100%;height:100%;object-fit:cover">`;
             document.getElementById('brand-nom').innerText = infos.nom || 'ASSOCIATION';
             document.getElementById('brand-nom').title = infos.nom || 'ASSOCIATION';
             document.getElementById('brand-sub').innerText = 'MUTASSO · Gestion associative';
