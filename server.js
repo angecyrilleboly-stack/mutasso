@@ -22,6 +22,14 @@ app.use(express.json({ limit: '60mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// En-têtes de sécurité de base
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 // Équivalent de doGet() : affiche l'application
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 

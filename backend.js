@@ -382,7 +382,17 @@ async function compterAbonnementsMembres() {
   return { status: "success", nb: await push.compter(compteActif.id, 'membre') };
 }
 
-function getMembres() { const s = SS.getSheetByName(SHEET_MEMBRES); const v = s.getDataRange().getValues(); return v.length <= 1 ? [] : v.slice(1).filter(r => r[0] !== "").map(row => ({ id: row[0].toString(), nom: row[1].toString(), prenom: row[2].toString(), contact: row[3].toString(), ville: row[4].toString(), sexe: row[5].toString() })); }
+function getMembres() {
+  const s = SS.getSheetByName(SHEET_MEMBRES); const v = s.getDataRange().getValues();
+  if (v.length <= 1) return [];
+  // Sécurité : une session MEMBRE ne voit pas les contacts des
+  // autres adhérents (l'interface membre n'utilise que noms/sexe).
+  return v.slice(1).filter(r => r[0] !== "").map(row => {
+    const m = { id: row[0].toString(), nom: row[1].toString(), prenom: row[2].toString(), contact: row[3].toString(), ville: row[4].toString(), sexe: row[5].toString() };
+    if (accesMembre) m.contact = '';
+    return m;
+  });
+}
 
 function getDashboardStats() {
   const sumCol = (n, c) => { const s = SS.getSheetByName(n); if (!s || s.getLastRow() <= 1) return 0; return s.getRange(2, c, s.getLastRow()-1, 1).getValues().reduce((acc, v) => acc + (Number(v[0]) || 0), 0); };
@@ -416,6 +426,9 @@ function getEtatPaiements(type, param1, param2) {
 }
 
 function getMembreProfile(idMembre) {
+  // Sécurité : une session MEMBRE ne peut consulter que SA propre
+  // fiche — l'identifiant demandé est ignoré et remplacé par le sien.
+  if (accesMembre) idMembre = accesMembre.id;
   const membres = SS.getSheetByName(SHEET_MEMBRES).getDataRange().getValues().slice(1); const mRow = membres.find(r => r[0].toString() === idMembre.toString()); if(!mRow) return null;
   const info = { id: mRow[0], nom: mRow[1], prenom: mRow[2], contact: mRow[3], ville: mRow[4], sexe: mRow[5] };
   const mens = SS.getSheetByName(SHEET_MENSUEL).getDataRange().getValues().slice(1); const histMens = mens.filter(r => r[0].toString() === idMembre.toString()).map(r => ({ mois: r[2], annee: r[3], montant: r[4], datePaiement: r[5] instanceof Date ? r[5].toLocaleDateString('fr-FR') : r[5] })).reverse();
