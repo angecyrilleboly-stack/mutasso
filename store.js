@@ -67,6 +67,12 @@ async function initStore() {
 
 async function fermerStore() { if (pool) await pool.end().catch(() => {}); }
 
+// Test de vie de la base (health check)
+async function pingBdd() {
+  if (!pool) throw new Error('Base non initialisée');
+  await pool.query('SELECT 1');
+}
+
 /* ============ Registre des comptes ============ */
 async function pgLireRegistre() {
   const r = await pool.query('SELECT * FROM comptes ORDER BY creee_le');
@@ -175,4 +181,4 @@ async function pgEcrireParam(cle, valeur) {
   );
 }
 
-module.exports = { initStore, fermerStore, pgLireRegistre, pgSauverRegistre, pgLireClasseur, pgEcrireClasseur, pgEnregistrerFichier, pgLireFichier, pgAjouterAbonnementPush, pgMigrerAbonnementPush, pgListerAbonnementsPush, pgSupprimerAbonnementPush, pgLireParam, pgEcrireParam };
+module.exports = { initStore, fermerStore, pingBdd, pgLireRegistre, pgSauverRegistre, pgLireClasseur, pgEcrireClasseur, pgEnregistrerFichier, pgLireFichier, pgAjouterAbonnementPush, pgMigrerAbonnementPush, pgListerAbonnementsPush, pgSupprimerAbonnementPush, pgLireParam, pgEcrireParam };

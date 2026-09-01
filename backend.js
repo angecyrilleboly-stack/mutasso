@@ -10,6 +10,7 @@ const { ouvrirClasseur, lireRegistre, ajouterAuRegistre, majEntreeRegistre, tabl
 const config = require('./config');
 const store = require('./store');
 const push = require('./push');
+const { niveaux: log } = require('./logger');
 
 // --- Constantes (ex-configuration.gs) ---
 const SHEET_MEMBRES = "MEMBRES";
@@ -157,6 +158,7 @@ async function creerCompte(d) {
   // Espace de données VIERGE, propre à cette association
   await activerCompte(entree.id);
   saveAssocInfos({ nom: d.nom, tel: d.contact || "", adresse: "", email: email, logo: d.logo || "" });
+  log.info("Association inscrite", { evenement: "inscription", compteId: entree.id, email: email, nom: d.nom });
   return { status: "success", msg: "Compte créé ! Votre espace est prêt.", token: tokenPour(entree), infos: infosPubliques(entree) };
 }
 
@@ -174,6 +176,7 @@ async function connexion(email, mdp) {
   const { hash } = hashMdp(mdp, entree.salt);
   if (memesHash(hash, entree.hash)) {
     delete tentativesConnexion[emailNorm];
+    log.info("Connexion gestionnaire", { evenement: "connexion", compteId: entree.id, role: "admin" });
     return { status: "success", msg: "Connexion réussie !", token: tokenPour(entree), infos: { ...infosPubliques(entree), role: "admin" } };
   }
   // Espace membre : même email (celui de l'association), mais mot
@@ -181,6 +184,7 @@ async function connexion(email, mdp) {
   const acces = await chercherAccesMembre(entree.id, mdp);
   if (acces) {
     delete tentativesConnexion[emailNorm];
+    log.info("Connexion membre", { evenement: "connexion", compteId: entree.id, role: "membre", membreId: acces.id });
     return {
       status: "success", msg: "Bienvenue " + acces.prenom + " !", token: acces.token,
       infos: { ...infosPubliques(entree), role: "membre", membre: { id: acces.id, nom: acces.nom, prenom: acces.prenom } }
@@ -316,6 +320,7 @@ function genererMdpMembre(idMembre) {
   const nomComplet = (m.prenom + " " + m.nom).trim();
   if (ligne > 0) s.getRange(ligne + 1, 1, 1, 4).setValues([[m.id, nomComplet, hash, salt]]);
   else s.appendRow([m.id, nomComplet, hash, salt]);
+  log.info("Accès membre généré", { evenement: "acces_membre", compteId: compteActif ? compteActif.id : null, membreId: m.id });
   return {
     status: "success",
     msg: "Mot de passe généré pour " + nomComplet + ".",
@@ -536,7 +541,7 @@ function modifierMembre(d) {
   return { status: "success", msg: "Informations de " + ancienNom + " mises à jour !" };
 }
 
-function enregistrerMensuel(d) { SS.getSheetByName(SHEET_MENSUEL).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.mois, d.annee, d.montant, new Date().toLocaleDateString('fr-FR'), d.typeCotis]); return {status:"success", msg:"Paiement enregistré !"};
+function enregistrerMensuel(d) { SS.getSheetByName(SHEET_MENSUEL).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.mois, d.annee, d.montant, new Date().toLocaleDateString('fr-FR'), d.typeCotis]); log.info("Mensualité encaissée", { evenement: "encaissement_mensuel", compteId: compteActif ? compteActif.id : null, membreId: d.idMembre, mois: d.mois, annee: d.annee, montant: Number(d.montant) || 0 }); return {status:"success", msg:"Paiement enregistré !"};
 }
 
 function enregistrerExcep(d) {
@@ -547,8 +552,8 @@ function enregistrerExcep(d) {
   const envoi = push.notifierTous(compteActif ? compteActif.id : null,
     'Nouvelle cotisation exceptionnelle',
     `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
-    .catch(e => { console.error('Push excep :', e && e.message); return { envoyees: 0 }; });
-  return envoi.then(r => ({status:"success", msg:"Cotisation enregistrée !", membresNotifies: r.envoyees || 0}));
+    .catch(e => { log.error('Échec d\'envoi des notifications (cotisation exceptionnelle)', { error: { message: e && e.message } }); return { envoyees: 0 }; });
+  return envoi.then(r => { log.info("Cotisation exceptionnelle encaissée", { evenement: "encaissement_excep", compteId: compteActif ? compteActif.id : null, membreId: d.idMembre, motif: String(d.motif || "").toUpperCase(), montant: Number(d.montant) || 0, membresNotifies: r.envoyees || 0 }); return {status:"success", msg:"Cotisation enregistrée !", membresNotifies: r.envoyees || 0}; });
 }
 
 // Sortie de caisse : objet + date + somme. La date saisie (format
@@ -562,8 +567,8 @@ function enregistrerDepense(d) {
   const envoi = push.notifierTous(compteActif ? compteActif.id : null,
     "Nouvelle sortie d'argent",
     `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
-    .catch(e => { console.error('Push dépense :', e && e.message); return { envoyees: 0 }; });
-  return envoi.then(r => ({status:"success", msg:"Sortie validée !", membresNotifies: r.envoyees || 0}));
+    .catch(e => { log.error('Échec d\'envoi des notifications (sortie d\'argent)', { error: { message: e && e.message } }); return { envoyees: 0 }; });
+  return envoi.then(r => { log.info("Sortie d'argent validée", { evenement: "sortie", compteId: compteActif ? compteActif.id : null, objet: String(d.motif || "").toUpperCase(), montant: Number(d.montant) || 0, membresNotifies: r.envoyees || 0 }); return {status:"success", msg:"Sortie validée !", membresNotifies: r.envoyees || 0}; });
 }
 
 function getTypesExcep() { const s = SS.getSheetByName(SHEET_TYPES_EXCEP);
@@ -585,7 +590,7 @@ function enregistrerTypeExcep(d) {
   const envoi = push.notifierTous(compteActif ? compteActif.id : null,
     'Nouvelle cotisation exceptionnelle',
     `${nomAssoc} : ${String(d.label).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA. Pensez à votre participation.`)
-    .catch(e => { console.error('Push motif excep :', e && e.message); return { envoyees: 0 }; });
+    .catch(e => { log.error('Échec d\'envoi des notifications (nouveau motif)', { error: { message: e && e.message } }); return { envoyees: 0 }; });
   return envoi.then(r => ({ status: "success", msg: "Motif sauvegardé !", membresNotifies: r.envoyees || 0 }));
 }
 
@@ -1091,9 +1096,10 @@ ${JSON.stringify(ctx)}`;
       lignes: (Array.isArray(s.lignes) ? s.lignes : []).slice(0, 200).map(l => (Array.isArray(l) ? l : [l]).slice(0, 4).map(c => String(c)))
     })).filter(s => s.lignes.length);
 
+    log.info("Rapport généré (IA)", { evenement: "rapport", compteId: compteActif ? compteActif.id : null, role: accesMembre ? 'membre' : 'admin', demande: String(demande).trim().slice(0, 120) });
     return { ...commun, moteur: 'ia', synthese: r.synthese.trim(), sections: sections, solde: '' };
   } catch (e) {
-    console.error('Rapport IA (repli sur le moteur de règles) :', e && e.message);
+    log.warn('Rapport IA indisponible — repli sur le moteur de règles', { error: { message: e && e.message } });
     const r = getRapportLibreRegles(demande);
     return { ...r, moteur: 'regles' };
   }
