@@ -893,7 +893,7 @@ function redigerSyntheseRapport(demande, C) {
   const I = C.intents;
   const p = [];
 
-  p.push(`Le présent rapport est établi à la demande du Bureau de ${C.nomAssoc} et répond point par point à la requête suivante : « ${String(demande).trim()} ». ${C.periode ? 'Les données financières retenues couvrent la période de ' + C.debutLib + ' à ' + C.finLib + '.' : 'Les données financières retenues couvrent l\'ensemble des opérations enregistrées à ce jour.'}`);
+  p.push(`Le présent rapport est établi à la demande du Bureau de ${C.nomAssoc} et répond point par point à la requête suivante : « ${String(demande).trim()} ». ${C.periode ? 'Les données financières retenues couvrent la période de ' + C.debutLib + ' à ' + C.finLib + '.' : 'Les données financières retenues couvrent l\'ensemble des opérations enregistrées à ce jour.'} Il est rappelé que, conformément au règlement de l'association, toutes les cotisations — mensuelles et exceptionnelles — sont obligatoires et s'imposent à l'ensemble des membres.`);
 
   if (I.bureau) {
     if (C.bureau.length) {
@@ -924,7 +924,7 @@ function redigerSyntheseRapport(demande, C) {
   }
 
   if (I.retards && C.retards && C.retards.total > 0) {
-    p.push(`S'agissant de la mensualité de ${C.moisCourant}, ${C.retards.aJour} membres sur ${C.effectif} sont à jour, soit un taux de recouvrement de ${C.retards.taux} % ; ${C.retards.total} membre${C.retards.total > 1 ? 's' : ''} reste${C.retards.total > 1 ? 'nt' : ''} redevable${C.retards.total > 1 ? 's' : ''} d'un montant unitaire de ${F(C.mensualite)} FCFA. Le Bureau est invité à poursuivre les diligences de recouvrement engagées.`);
+    p.push(`S'agissant de la mensualité de ${C.moisCourant}, ${C.retards.aJour} membres sur ${C.effectif} ont satisfait à leur obligation, soit un taux de recouvrement de ${C.retards.taux} % ; ${C.retards.total} membre${C.retards.total > 1 ? 's' : ''} reste${C.retards.total > 1 ? 'nt' : ''} redevable${C.retards.total > 1 ? 's' : ''} du montant obligatoire de ${F(C.mensualite)} FCFA et est invité${C.retards.total > 1 ? 's' : ''} à procéder à la régularisation sans délai. Le Bureau est prié de poursuivre les diligences de recouvrement engagées à cet effet.`);
   }
 
   if (I.depenses || I.solde || I.mensuel || I.excep) {
@@ -962,7 +962,8 @@ function contexteCompletRapport() {
   const cfg = getMensualiteConfig();
 
   return {
-    association: { nom: infos.nom, contact: infos.tel, email: infos.email, mensualite: cfg ? cfg.montant : 0, dateDuJour: auj.toLocaleDateString('fr-FR'), moisCourant: moisCourant },
+    association: { nom: infos.nom, contact: infos.tel, email: infos.email, mensualite: cfg ? cfg.montant : 0, dateDuJour: auj.toLocaleDateString('fr-FR'), moisCourant: moisCourant,
+      reglement: "Toutes les cotisations — mensuelles ET exceptionnelles — sont OBLIGATOIRES pour l'ensemble des membres, conformément au règlement de l'association." },
     effectif: membres.length,
     membres: membres.map(m => ({ nom: m.nom, prenom: m.prenom, contact: m.contact, ville: m.ville, sexe: m.sexe })),
     bureau: bureau,
@@ -1057,10 +1058,11 @@ RÈGLES ABSOLUES :
 1. Le rapport répond EXACTEMENT à la demande : les sections correspondent précisément à ce qui est demandé, dans cet ordre. Si la demande porte sur une seule chose (ex : liste des membres du bureau), le rapport ne contient QUE cette chose.
 2. N'utilise AUCUN nom, montant, date ou chiffre absent des DONNÉES. Aucune invention, aucune estimation.
 3. CALCULS : pour TOUT total, classement, décompte ou moyenne globale, utilise les « agregats » fournis dans les DONNÉES — ils sont calculés par l'application et EXACTS : reprends leurs valeurs telles quelles, sans les recalculer ni les modifier. Les listes détaillées (mensualites, exceptionnelles, depenses) servent aux listes nominales et au filtrage par période. Un montant faux invalide le rapport entier.
-4. "synthese" : 2 à 4 paragraphes denses en français administratif soutenu (passé composé, vocabulaire officiel : diligences, recouvrement, conformément…), qui répondent à la demande en reprenant les chiffres pertinents des données. Pas de titre dans la synthèse, pas de markdown.
-5. "sections" : 1 à 6 sections. Titres numérotés en chiffres romains (I., II., III.…), en MAJUSCULES, décrivant leur contenu. 2 à 4 entetes de colonnes courts. Une ligne par élément pour une liste. Cellules = textes courts (montants au format "12 345 FCFA").
-6. Si une période est déduisible de la demande (mois, année, intervalle), filtre les données datées en conséquence (dates "jj/mm/aaaa").
-7. Réponds en JSON strict, sans balise markdown.
+4. RÈGLE DE FOND — OBLIGATION DE COTISER : conformément au règlement de l'association (voir association.reglement dans les DONNÉES), TOUTES les cotisations — mensuelles ET exceptionnelles — sont OBLIGATOIRES pour l'ensemble des membres. Le rapport doit refléter cette obligation : un membre n'ayant pas cotisé est un membre REDEVABLE (en retard de règlement, et non un simple « non-payeur » facultatif) ; la synthèse emploie le vocabulaire de l'obligation (redevable, régularisation, recouvrement, conformément au règlement) et, lorsque des membres n'ont pas cotisé, elle le souligne et invite explicitement à la régularisation.
+5. "synthese" : 2 à 4 paragraphes denses en français administratif soutenu (passé composé, vocabulaire officiel : diligences, recouvrement, conformément…), qui répondent à la demande en reprenant les chiffres pertinents des données. Pas de titre dans la synthèse, pas de markdown.
+6. "sections" : 1 à 6 sections. Titres numérotés en chiffres romains (I., II., III.…), en MAJUSCULES, décrivant leur contenu. 2 à 4 entetes de colonnes courts. Une ligne par élément pour une liste. Cellules = textes courts (montants au format "12 345 FCFA").
+7. Si une période est déduisible de la demande (mois, année, intervalle), filtre les données datées en conséquence (dates "jj/mm/aaaa").
+8. Réponds en JSON strict, sans balise markdown.
 
 DONNÉES :
 ${JSON.stringify(ctx)}`;
