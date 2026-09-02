@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { ouvrirClasseur, lireRegistre, ajouterAuRegistre, majEntreeRegistre, tablesDuClasseur } = require('./sheets');
+const { ouvrirClasseur, lireRegistre, ajouterAuRegistre, majEntreeRegistre, sauverRegistre, tablesDuClasseur } = require('./sheets');
 const config = require('./config');
 const store = require('./store');
 const push = require('./push');
@@ -164,6 +164,106 @@ async function creerCompte(d) {
 
 
 
+// ---- SUPER ADMINISTRATEUR -----------------------------------
+// Le super admin supervise TOUTES les associations de l'application.
+// Liste : variable SUPER_ADMIN_EMAILS (env, séparée virgules) UNION
+// paramètre « super_admins » en base ; à défaut, le compte le plus
+// ancien (le fondateur de l'application) est super admin.
+async function listeSuperAdmins() {
+  const emails = [];
+  if (config.SUPER_ADMIN_EMAILS) {
+    config.SUPER_ADMIN_EMAILS.split(',').forEach(e => { const n = normaliserEmail(e); if (n && !emails.includes(n)) emails.push(n); });
+  }
+  try {
+    const v = store.pgLireParam ? await store.pgLireParam('super_admins') : null;
+    if (v) JSON.parse(v).forEach(e => { const n = normaliserEmail(e); if (n && !emails.includes(n)) emails.push(n); });
+  } catch (e) { /* mode fichiers ou absent */ }
+  if (!emails.length) {
+    const reg = await lireRegistre();
+    if (reg.length) emails.push(reg[0].email); // compte fondateur
+  }
+  return emails;
+}
+
+async function estSuperAdmin(email) {
+  return (await listeSuperAdmins()).includes(normaliserEmail(email));
+}
+
+// Tableau de bord GLOBAL du super admin : toutes les associations,
+// leur effectif, leurs finances et leurs appareils notifiés.
+async function getVueGlobale() {
+  if (!compteActif || !(await estSuperAdmin(compteActif.email))) {
+    return { status: "error", msg: "Réservé au super administrateur." };
+  }
+  const reg = await lireRegistre();
+  const associations = [];
+  for (const c of reg) {
+    const tables = (await ouvrirClasseur(c.id), tablesDuClasseur(c.id)) || {};
+    const nbLignes = (t) => Array.isArray(t) ? Math.max(0, t.length - 1) : 0;
+    const mens = tables[SHEET_MENSUEL] || [];
+    const exc = tables[SHEET_EXCEP] || [];
+    const dep = tables[SHEET_DEPENSES] || [];
+    const somme = (t, col) => t.slice(1).reduce((a, r) => a + (Number(r[col]) || 0), 0);
+    associations.push({
+      id: c.id, nom: c.nom, email: c.email, contact: c.contact || '',
+      creeLe: c.creeLe || '',
+      nbMembres: nbLignes(tables[SHEET_MEMBRES]),
+      nbMens: nbLignes(mens), nbExc: nbLignes(exc), nbDep: nbLignes(dep),
+      totalEntrees: somme(mens, 4) + somme(exc, 3),
+      totalDepenses: somme(dep, 2),
+      caisse: somme(mens, 4) + somme(exc, 3) - somme(dep, 2)
+    });
+  }
+  return {
+    status: "success",
+    nbAssociations: associations.length,
+    totalMembres: associations.reduce((a, x) => a + x.nbMembres, 0),
+    totalCotisations: associations.reduce((a, x) => a + x.nbMens + x.nbExc, 0),
+    totalCaisse: associations.reduce((a, x) => a + x.caisse, 0),
+    associations: associations
+  };
+}
+
+// Réinitialise le mot de passe d'une association (super admin).
+// Le nouveau mot de passe n'est montré qu'une fois.
+async function reinitialiserMdpAssociation(idCompte) {
+  if (!compteActif || !(await estSuperAdmin(compteActif.email))) {
+    return { status: "error", msg: "Réservé au super administrateur." };
+  }
+  const reg = await lireRegistre();
+  const entree = reg.find(c => c.id === idCompte);
+  if (!entree) return { status: "error", msg: "Association introuvable." };
+  const mdp = mdpAleatoire();
+  const { salt, hash } = hashMdp(mdp);
+  entree.hash = hash; entree.salt = salt;
+  majEntreeRegistre(entree);
+  log.warn("Mot de passe association réinitialisé", { evenement: "reset_mdp_association", cible: idCompte, par: compteActif.id });
+  return { status: "success", msg: "Nouveau mot de passe généré pour " + entree.nom + ".", mdp: mdp, email: entree.email };
+}
+
+// Supprime définitivement une association et toutes ses données.
+async function supprimerAssociation(idCompte) {
+  if (!compteActif || !(await estSuperAdmin(compteActif.email))) {
+    return { status: "error", msg: "Réservé au super administrateur." };
+  }
+  if (idCompte === compteActif.id) return { status: "error", msg: "Impossible de supprimer votre propre association depuis ici." };
+  const reg = await lireRegistre();
+  const entree = reg.find(c => c.id === idCompte);
+  if (!entree) return { status: "error", msg: "Association introuvable." };
+  if (config.MODE_PG) {
+    await store.pgSupprimerAbonnementPushCompte(idCompte).catch(() => {});
+    await store.pgSupprimerClasseur(idCompte).catch(() => {});
+  } else {
+    try { require('fs').unlinkSync(path.join(__dirname, 'data', 'comptes', idCompte + '.json')); } catch (e) {}
+  }
+  // Retire l'association du registre (en place) et persiste
+  reg.splice(reg.indexOf(entree), 1);
+  if (config.MODE_PG) await store.pgSauverRegistre(reg);
+  else sauverRegistre();
+  log.error('ASSOCIATION SUPPRIMÉE par le super admin', { evenement: 'suppression_association', cible: idCompte, nom: entree.nom, par: compteActif.id });
+  return { status: 'success', msg: 'Association ' + entree.nom + ' supprimée avec toutes ses données.' };
+}
+
 async function connexion(email, mdp) {
   const emailNorm = normaliserEmail(email);
   const etat = tentativesConnexion[emailNorm];
@@ -176,8 +276,10 @@ async function connexion(email, mdp) {
   const { hash } = hashMdp(mdp, entree.salt);
   if (memesHash(hash, entree.hash)) {
     delete tentativesConnexion[emailNorm];
-    log.info("Connexion gestionnaire", { evenement: "connexion", compteId: entree.id, role: "admin" });
-    return { status: "success", msg: "Connexion réussie !", token: tokenPour(entree), infos: { ...infosPubliques(entree), role: "admin" } };
+    const superAdmin = await estSuperAdmin(entree.email);
+    const role = superAdmin ? "superadmin" : "admin";
+    log.info("Connexion gestionnaire", { evenement: "connexion", compteId: entree.id, role: role });
+    return { status: "success", msg: "Connexion réussie !", token: tokenPour(entree), infos: { ...infosPubliques(entree), role: role } };
   }
   // Espace membre : même email (celui de l'association), mais mot
   // de passe personnel remis par le gestionnaire.
@@ -257,11 +359,14 @@ async function activerCompte(id, idMembre) {
 
 // Infos de session : identité de l'association +, pour un membre,
 // son rôle ("membre") et sa propre identité.
-function infosCompte() {
+// Infos de session : identité de l'association + rôle. Le rôle
+// superadmin est déterminé à chaque session (liste mutable).
+async function infosCompte() {
   if (!compteActif) return null;
   const base = infosPubliques(compteActif);
   if (accesMembre) return { ...base, role: "membre", membre: accesMembre };
-  return { ...base, role: "admin" };
+  const superAdmin = await estSuperAdmin(compteActif.email);
+  return { ...base, role: superAdmin ? "superadmin" : "admin" };
 }
 
 // Modification de l'identité (nom, contact, logo) depuis Paramètres
@@ -1321,5 +1426,6 @@ module.exports = {
   getRapportJour, getRapportPeriode, getRapportLibre, genererRapportIA,
   compteExiste, creerCompte, connexion, verifierToken, verifierSession, activerCompte, infosCompte, majIdentite, majMotDePasse,
   genererMdpMembre, supprimerAccesMembre, majMotDePasseMembre, idsAccesMembres,
-  clePubliquePush, abonnerPush, testPushPerso, compterAbonnementsMembres
+  clePubliquePush, abonnerPush, testPushPerso, compterAbonnementsMembres,
+  getVueGlobale, reinitialiserMdpAssociation, supprimerAssociation
 };

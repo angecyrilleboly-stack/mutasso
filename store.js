@@ -163,6 +163,14 @@ async function pgListerAbonnementsPush(compteId, role) {
   return r.rows.map(l => ({ endpoint: l.endpoint, keys: l.cles }));
 }
 
+async function pgSupprimerClasseur(compteId) {
+  await pool.query('DELETE FROM classeurs WHERE compte_id = $1', [compteId]);
+}
+
+async function pgSupprimerAbonnementPushCompte(compteId) {
+  await pool.query('DELETE FROM abonnements_push WHERE compte_id = $1', [compteId]);
+}
+
 async function pgSupprimerAbonnementPush(endpoint) {
   await pool.query('DELETE FROM abonnements_push WHERE endpoint = $1', [endpoint]);
 }
@@ -181,4 +189,4 @@ async function pgEcrireParam(cle, valeur) {
   );
 }
 
-module.exports = { initStore, fermerStore, pingBdd, pgLireRegistre, pgSauverRegistre, pgLireClasseur, pgEcrireClasseur, pgEnregistrerFichier, pgLireFichier, pgAjouterAbonnementPush, pgMigrerAbonnementPush, pgListerAbonnementsPush, pgSupprimerAbonnementPush, pgLireParam, pgEcrireParam };
+module.exports = { initStore, fermerStore, pingBdd, pgLireRegistre, pgSauverRegistre, pgLireClasseur, pgEcrireClasseur, pgEnregistrerFichier, pgLireFichier, pgAjouterAbonnementPush, pgMigrerAbonnementPush, pgListerAbonnementsPush, pgSupprimerClasseur, pgSupprimerAbonnementPushCompte, pgSupprimerAbonnementPush, pgLireParam, pgEcrireParam };

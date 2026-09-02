@@ -28,7 +28,9 @@ const config = {
   // Notifications push (Web Push / VAPID)
   VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || '',
   VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || '',
-  VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:contact@mutasso.app'
+  VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:contact@mutasso.app',
+  // Super admins (emails séparés par des virgules) — à défaut, le compte fondateur
+  SUPER_ADMIN_EMAILS: process.env.SUPER_ADMIN_EMAILS || ''
 };
 
 config.MODE_PG = !!config.DATABASE_URL;
