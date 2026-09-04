@@ -315,6 +315,37 @@ async function reinitialiserMdpAssociation(idCompte) {
   return { status: "success", msg: "Nouveau mot de passe généré pour " + entree.nom + ".", mdp: mdp, email: entree.email };
 }
 
+// Crée une association pour le compte du super admin : il fournit
+// nom, email et contact ; le mot de passe est GÉNÉRÉ et montré une
+// seule fois, à remettre à l'association (qui le changera ensuite
+// depuis ses Paramètres — majMotDePasse lui est déjà accessible).
+async function creerAssociationParSuperAdmin(d) {
+  if (!compteActif || compteActif.id !== 'SUPER') {
+    return { status: "error", msg: "Réservé au super administrateur." };
+  }
+  if (!d.nom || !d.email) return { status: "error", msg: "Nom et email de l'association obligatoires." };
+  const email = normaliserEmail(d.email);
+  if (!emailValide(email)) return { status: "error", msg: "Adresse email invalide." };
+  const reg = await lireRegistre();
+  if (reg.some(c => c.email === email)) return { status: "error", msg: "Un compte existe déjà avec cet email." };
+  const mdp = mdpAleatoire();
+  const { salt, hash } = hashMdp(mdp);
+  const entree = {
+    id: "C-" + Date.now().toString(36).toUpperCase() + "-" + Math.floor(Math.random() * 900 + 100),
+    email: email, hash: hash, salt: salt,
+    nom: d.nom, contact: d.contact || "", logo: "",
+    creeLe: new Date().toISOString()
+  };
+  ajouterAuRegistre(entree);
+  // Espace de données vierge pour cette association
+  const monId = compteActif.id;
+  await activerCompte(entree.id);
+  saveAssocInfos({ nom: d.nom, tel: d.contact || "", adresse: "", email: email, logo: "" });
+  await activerCompte(monId); // retour à la session super admin
+  log.info("Association créée par le super admin", { evenement: "creation_association", compteId: entree.id, email: email, nom: d.nom, par: 'SUPER' });
+  return { status: "success", msg: "Association " + d.nom + " créée !", email: email, mdp: mdp, nom: d.nom };
+}
+
 // Supprime définitivement une association et toutes ses données.
 async function supprimerAssociation(idCompte) {
   if (!compteActif || compteActif.id !== 'SUPER') {
@@ -333,6 +364,7 @@ async function supprimerAssociation(idCompte) {
   reg.splice(reg.indexOf(entree), 1);
   if (config.MODE_PG) await store.pgSauverRegistre(reg);
   else sauverRegistre();
+  const tables = require('./sheets');
   log.error('ASSOCIATION SUPPRIMÉE par le super admin', { evenement: 'suppression_association', cible: idCompte, nom: entree.nom, par: 'SUPER' });
   return { status: 'success', msg: 'Association ' + entree.nom + ' supprimée avec toutes ses données.' };
 }
@@ -1523,5 +1555,5 @@ module.exports = {
   genererMdpMembre, supprimerAccesMembre, majMotDePasseMembre, idsAccesMembres,
   clePubliquePush, abonnerPush, testPushPerso, compterAbonnementsMembres,
   getVueGlobale, reinitialiserMdpAssociation, supprimerAssociation,
-  connexionSuperAdmin, majMotDePasseSuperAdmin, verifierSessionSuperAdmin
+  connexionSuperAdmin, majMotDePasseSuperAdmin, verifierSessionSuperAdmin, creerAssociationParSuperAdmin
 };
