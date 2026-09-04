@@ -164,41 +164,115 @@ async function creerCompte(d) {
 
 
 
-// ---- SUPER ADMINISTRATEUR -----------------------------------
-// Le super admin supervise TOUTES les associations de l'application.
-// Liste : variable SUPER_ADMIN_EMAILS (env, séparée virgules) UNION
-// paramètre « super_admins » en base ; à défaut, le compte le plus
-// ancien (le fondateur de l'application) est super admin.
-async function listeSuperAdmins() {
-  const emails = [];
-  if (config.SUPER_ADMIN_EMAILS) {
-    config.SUPER_ADMIN_EMAILS.split(',').forEach(e => { const n = normaliserEmail(e); if (n && !emails.includes(n)) emails.push(n); });
-  }
+// ---- SUPER ADMINISTRATEUR — ACCÈS DÉDIÉ ET SÉPARÉ ------------
+// Le super admin supervise TOUTES les associations depuis SON
+// propre accès (email + mot de passe distincts, paramètre
+// « super_admin » en base : {email, hash, salt}). Aucune confusion
+// possible avec les comptes d'association : jeton « S|sig »,
+// session sans classeur d'association.
+
+// Lit la fiche du super admin (créée au 1er démarrage)
+// PG : paramètre « super_admin » ; fichiers : data/super-admin.json
+const FICHIER_SUPER_ADMIN = path.join(__dirname, 'data', 'super-admin.json');
+async function lireSuperAdmin() {
   try {
-    const v = store.pgLireParam ? await store.pgLireParam('super_admins') : null;
-    if (v) JSON.parse(v).forEach(e => { const n = normaliserEmail(e); if (n && !emails.includes(n)) emails.push(n); });
-  } catch (e) { /* mode fichiers ou absent */ }
-  if (!emails.length) {
-    const reg = await lireRegistre();
-    if (reg.length) emails.push(reg[0].email); // compte fondateur
-  }
-  return emails;
+    if (config.MODE_PG) {
+      const v = await store.pgLireParam('super_admin');
+      return v ? JSON.parse(v) : null;
+    }
+    return JSON.parse(fs.readFileSync(FICHIER_SUPER_ADMIN, 'utf8'));
+  } catch (e) { return null; }
 }
 
-async function estSuperAdmin(email) {
-  return (await listeSuperAdmins()).includes(normaliserEmail(email));
+async function sauverSuperAdmin(sa) {
+  if (config.MODE_PG) { await store.pgEcrireParam('super_admin', JSON.stringify(sa)); return; }
+  fs.mkdirSync(path.dirname(FICHIER_SUPER_ADMIN), { recursive: true });
+  fs.writeFileSync(FICHIER_SUPER_ADMIN, JSON.stringify(sa, null, 2));
+}
+
+// Identifiants par défaut du super admin, définis par variables
+// d'environnement (SUPER_ADMIN_EMAIL / SUPER_ADMIN_MDP) ; sinon un
+// couple aléatoire est généré et journalisé une seule fois.
+async function assurerSuperAdmin() {
+  let sa = await lireSuperAdmin();
+  if (sa && sa.email && sa.hash) return sa;
+  const email = normaliserEmail(config.SUPER_ADMIN_EMAIL || 'superadmin@mutasso.app');
+  const mdp = config.SUPER_ADMIN_MDP || mdpAleatoire() + mdpAleatoire().slice(0, 4);
+  const { salt, hash } = hashMdp(mdp);
+  sa = { email: email, hash: hash, salt: salt, creeLe: new Date().toISOString() };
+  await sauverSuperAdmin(sa);
+  if (!config.SUPER_ADMIN_EMAIL) {
+    log.warn("SUPER ADMIN initialisé (identifiants aléatoires — notez-les)", { evenement: "init_super_admin", email: email, mdp: mdp });
+  }
+  return sa;
+}
+
+// Jeton de session du super admin : « S|<signature> » (change si le
+// mot de passe change — les autres sessions super admin tombent).
+function tokenSuperAdmin(sa) {
+  return 'S|' + crypto.createHash('sha256').update('SUPER|' + sa.email + '|' + sa.hash).digest('hex');
+}
+
+// Valide un jeton super admin
+async function verifierSessionSuperAdmin(token) {
+  if (!token || !String(token).startsWith('S|')) return null;
+  const sa = await lireSuperAdmin();
+  if (!sa) return null;
+  return memesHash(tokenSuperAdmin(sa), String(token)) ? { role: 'superadmin' } : null;
+}
+
+// Connexion DÉDIÉE du super admin (avant les associations)
+async function connexionSuperAdmin(email, mdp) {
+  const emailNorm = normaliserEmail(email);
+  const etat = tentativesConnexion['SA:' + emailNorm];
+  if (etat && etat.bloqueJusqu > Date.now()) {
+    const mn = Math.ceil((etat.bloqueJusqu - Date.now()) / 60000);
+    return { status: "error", msg: `Trop de tentatives échouées. Réessayez dans ${mn} minute(s).` };
+  }
+  const sa = (await lireSuperAdmin()) || (await assurerSuperAdmin());
+  if (normaliserEmail(sa.email) !== emailNorm) {
+    return { status: "error", msg: "Identifiants super admin incorrects." };
+  }
+  const { hash } = hashMdp(mdp, sa.salt);
+  if (!memesHash(hash, sa.hash)) {
+    const nb = (etat ? etat.nb : 0) + 1;
+    tentativesConnexion['SA:' + emailNorm] = { nb: nb, bloqueJusqu: nb >= MAX_TENTATIVES ? Date.now() + DUREE_BLOCAGE_MS : 0 };
+    return { status: "error", msg: "Identifiants super admin incorrects." };
+  }
+  delete tentativesConnexion['SA:' + emailNorm];
+  log.info("Connexion super admin", { evenement: "connexion", role: "superadmin" });
+  return {
+    status: "success", msg: "Connexion super administrateur réussie !", token: tokenSuperAdmin(sa),
+    infos: { id: 'SUPER', email: sa.email, nom: 'SUPER ADMIN — MUTASSO', contact: '', logo: '', role: "superadmin" }
+  };
+}
+
+// Le super admin change son mot de passe (nouveau jeton renvoyé)
+async function majMotDePasseSuperAdmin(ancien, nouveau) {
+  const sa = await lireSuperAdmin();
+  if (!sa) return { status: "error", msg: "Super admin non initialisé." };
+  if (!compteActif || compteActif.id !== 'SUPER') return { status: "error", msg: "Réservé au super administrateur." };
+  const { hash } = hashMdp(ancien, sa.salt);
+  if (!memesHash(hash, sa.hash)) return { status: "error", msg: "Ancien mot de passe incorrect." };
+  if (String(nouveau).length < 8) return { status: "error", msg: "Nouveau mot de passe : 8 caractères minimum." };
+  const nh = hashMdp(nouveau);
+  sa.hash = nh.hash; sa.salt = nh.salt;
+  await sauverSuperAdmin(sa);
+  log.warn("Mot de passe super admin modifié", { evenement: "reset_mdp_super_admin" });
+  return { status: "success", msg: "Mot de passe mis à jour !", token: tokenSuperAdmin(sa) };
 }
 
 // Tableau de bord GLOBAL du super admin : toutes les associations,
-// leur effectif, leurs finances et leurs appareils notifiés.
+// leur effectif, leurs finances et leurs cotisations.
 async function getVueGlobale() {
-  if (!compteActif || !(await estSuperAdmin(compteActif.email))) {
+  if (!compteActif || compteActif.id !== 'SUPER') {
     return { status: "error", msg: "Réservé au super administrateur." };
   }
   const reg = await lireRegistre();
   const associations = [];
   for (const c of reg) {
-    const tables = (await ouvrirClasseur(c.id), tablesDuClasseur(c.id)) || {};
+    await ouvrirClasseur(c.id);
+    const tables = tablesDuClasseur(c.id) || {};
     const nbLignes = (t) => Array.isArray(t) ? Math.max(0, t.length - 1) : 0;
     const mens = tables[SHEET_MENSUEL] || [];
     const exc = tables[SHEET_EXCEP] || [];
@@ -227,7 +301,7 @@ async function getVueGlobale() {
 // Réinitialise le mot de passe d'une association (super admin).
 // Le nouveau mot de passe n'est montré qu'une fois.
 async function reinitialiserMdpAssociation(idCompte) {
-  if (!compteActif || !(await estSuperAdmin(compteActif.email))) {
+  if (!compteActif || compteActif.id !== 'SUPER') {
     return { status: "error", msg: "Réservé au super administrateur." };
   }
   const reg = await lireRegistre();
@@ -237,16 +311,15 @@ async function reinitialiserMdpAssociation(idCompte) {
   const { salt, hash } = hashMdp(mdp);
   entree.hash = hash; entree.salt = salt;
   majEntreeRegistre(entree);
-  log.warn("Mot de passe association réinitialisé", { evenement: "reset_mdp_association", cible: idCompte, par: compteActif.id });
+  log.warn("Mot de passe association réinitialisé", { evenement: "reset_mdp_association", cible: idCompte, par: 'SUPER' });
   return { status: "success", msg: "Nouveau mot de passe généré pour " + entree.nom + ".", mdp: mdp, email: entree.email };
 }
 
 // Supprime définitivement une association et toutes ses données.
 async function supprimerAssociation(idCompte) {
-  if (!compteActif || !(await estSuperAdmin(compteActif.email))) {
+  if (!compteActif || compteActif.id !== 'SUPER') {
     return { status: "error", msg: "Réservé au super administrateur." };
   }
-  if (idCompte === compteActif.id) return { status: "error", msg: "Impossible de supprimer votre propre association depuis ici." };
   const reg = await lireRegistre();
   const entree = reg.find(c => c.id === idCompte);
   if (!entree) return { status: "error", msg: "Association introuvable." };
@@ -260,7 +333,7 @@ async function supprimerAssociation(idCompte) {
   reg.splice(reg.indexOf(entree), 1);
   if (config.MODE_PG) await store.pgSauverRegistre(reg);
   else sauverRegistre();
-  log.error('ASSOCIATION SUPPRIMÉE par le super admin', { evenement: 'suppression_association', cible: idCompte, nom: entree.nom, par: compteActif.id });
+  log.error('ASSOCIATION SUPPRIMÉE par le super admin', { evenement: 'suppression_association', cible: idCompte, nom: entree.nom, par: 'SUPER' });
   return { status: 'success', msg: 'Association ' + entree.nom + ' supprimée avec toutes ses données.' };
 }
 
@@ -271,15 +344,23 @@ async function connexion(email, mdp) {
     const mn = Math.ceil((etat.bloqueJusqu - Date.now()) / 60000);
     return { status: "error", msg: `Trop de tentatives échouées. Réessayez dans ${mn} minute(s).` };
   }
+  // Accès DÉDIÉ du super administrateur (identifiants propres,
+  // distincts de tout compte d'association). Le même email peut
+  // exister des deux côtés : on tente le mot de passe super admin ;
+  // s'il ne correspond pas, la connexion association suit son cours.
+  const sa = (await lireSuperAdmin()) || (await assurerSuperAdmin());
+  if (normaliserEmail(sa.email) === emailNorm) {
+    const essaiSA = await connexionSuperAdmin(email, mdp);
+    if (essaiSA.status === 'success') return essaiSA;
+    tentativesConnexion['SA:' + emailNorm] = null; // l'échec SA ne compte pas pour l'association
+  }
   const entree = (await lireRegistre()).find(c => c.email === emailNorm);
   if (!entree) return { status: "error", msg: "Email ou mot de passe incorrect." };
   const { hash } = hashMdp(mdp, entree.salt);
   if (memesHash(hash, entree.hash)) {
     delete tentativesConnexion[emailNorm];
-    const superAdmin = await estSuperAdmin(entree.email);
-    const role = superAdmin ? "superadmin" : "admin";
-    log.info("Connexion gestionnaire", { evenement: "connexion", compteId: entree.id, role: role });
-    return { status: "success", msg: "Connexion réussie !", token: tokenPour(entree), infos: { ...infosPubliques(entree), role: role } };
+    log.info("Connexion gestionnaire", { evenement: "connexion", compteId: entree.id, role: "admin" });
+    return { status: "success", msg: "Connexion réussie !", token: tokenPour(entree), infos: { ...infosPubliques(entree), role: "admin" } };
   }
   // Espace membre : même email (celui de l'association), mais mot
   // de passe personnel remis par le gestionnaire.
@@ -308,6 +389,9 @@ async function verifierToken(token) {
 // session : { idCompte, role, idMembre } — sinon null.
 async function verifierSession(token) {
   if (!token) return null;
+  // Session SUPER ADMIN (jeton « S|signature ») — accès dédié
+  const saSession = await verifierSessionSuperAdmin(token);
+  if (saSession) return { idCompte: 'SUPER', role: 'superadmin', idMembre: null };
   // Session administrateur (jeton sha256 hexa)
   const entree = (await lireRegistre()).find(c => memesHash(tokenPour(c), token));
   if (entree) return { idCompte: entree.id, role: "admin", idMembre: null };
@@ -339,6 +423,15 @@ async function verifierSession(token) {
 // NB : toutes les opérations feuilles sont synchrones, le
 // basculement par requête est donc sans risque de mélange.
 async function activerCompte(id, idMembre) {
+  // Session SUPER ADMIN : compte virtuel, AUCUN classeur d'association
+  if (id === 'SUPER') {
+    const sa = await lireSuperAdmin();
+    if (!sa) return false;
+    compteActif = { id: 'SUPER', email: sa.email, nom: 'SUPER ADMIN — MUTASSO', contact: '', logo: '' };
+    accesMembre = null;
+    SS = null;
+    return true;
+  }
   const entree = (await lireRegistre()).find(c => c.id === id);
   if (!entree) return false;
   compteActif = entree;
@@ -359,14 +452,16 @@ async function activerCompte(id, idMembre) {
 
 // Infos de session : identité de l'association +, pour un membre,
 // son rôle ("membre") et sa propre identité.
-// Infos de session : identité de l'association + rôle. Le rôle
-// superadmin est déterminé à chaque session (liste mutable).
+// Infos de session. Le super admin a une session DÉDIÉE (compte
+// virtuel 'SUPER') ; les associations sont toujours rôle 'admin'.
 async function infosCompte() {
   if (!compteActif) return null;
+  if (compteActif.id === 'SUPER') {
+    return { id: 'SUPER', email: compteActif.email, nom: 'SUPER ADMIN — MUTASSO', contact: '', logo: '', role: "superadmin" };
+  }
   const base = infosPubliques(compteActif);
   if (accesMembre) return { ...base, role: "membre", membre: accesMembre };
-  const superAdmin = await estSuperAdmin(compteActif.email);
-  return { ...base, role: superAdmin ? "superadmin" : "admin" };
+  return { ...base, role: "admin" };
 }
 
 // Modification de l'identité (nom, contact, logo) depuis Paramètres
@@ -1427,5 +1522,6 @@ module.exports = {
   compteExiste, creerCompte, connexion, verifierToken, verifierSession, activerCompte, infosCompte, majIdentite, majMotDePasse,
   genererMdpMembre, supprimerAccesMembre, majMotDePasseMembre, idsAccesMembres,
   clePubliquePush, abonnerPush, testPushPerso, compterAbonnementsMembres,
-  getVueGlobale, reinitialiserMdpAssociation, supprimerAssociation
+  getVueGlobale, reinitialiserMdpAssociation, supprimerAssociation,
+  connexionSuperAdmin, majMotDePasseSuperAdmin, verifierSessionSuperAdmin
 };

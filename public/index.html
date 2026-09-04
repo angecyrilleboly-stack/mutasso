@@ -278,6 +278,20 @@
                             <p class="text-center text-[11px] font-bold" style="color:var(--muted)">Première utilisation ? <span class="cursor-pointer underline" style="color:var(--primary)" onclick="afficherAuth('signup')">Créer le compte</span></p>
                         </form>
 
+                        <!-- Accès DÉDIÉ du super administrateur (séparé des associations) -->
+                        <form id="form-superadmin" class="space-y-4 hidden">
+                            <div class="flex items-center gap-3 p-3 rounded-2xl" style="background:rgba(13,148,136,.08);border:1px solid rgba(13,148,136,.25)">
+                                <div class="icon-tile it-teal" style="width:38px;height:38px;border-radius:12px"><i data-lucide="shield" class="w-4 h-4"></i></div>
+                                <div><p class="text-[12px] font-black uppercase tracking-wide" style="color:var(--primary)">Super administrateur</p><p class="text-[9.5px] font-bold" style="color:var(--muted)">Supervision de toutes les associations</p></div>
+                            </div>
+                            <div><label class="label-style">Email super admin</label><input type="email" name="email" required class="input-field" placeholder="superadmin@mutasso.app" autocomplete="username"></div>
+                            <div><label class="label-style">Mot de passe</label><input type="password" name="mdp" required class="input-field" placeholder="••••••••" autocomplete="current-password"></div>
+                            <p id="superadmin-err" class="text-[11px] font-bold hidden" style="color:var(--out)"></p>
+                            <button type="submit" class="btn-primary w-full justify-center !py-4"><i data-lucide="shield-check" class="w-4 h-4"></i>Accès supervision</button>
+                            <p class="text-center text-[11px] font-bold" style="color:var(--muted)">Espace réservé à l'administrateur de MUTASSO</p>
+                        </form>
+                        <p class="text-center text-[10px] font-bold mt-5" style="color:#5d8a80"><span class="cursor-pointer underline" onclick="afficherAuth('superadmin')">Accès super administrateur</span></p>
+
                         <form id="form-signup" class="space-y-4 hidden">
                             <div class="flex items-center gap-4">
                                 <div id="auth-logo-preview" class="w-[72px] h-[72px] rounded-2xl grid place-items-center overflow-hidden shrink-0" style="background:var(--field);border:1.5px dashed var(--field-border)"><i data-lucide="image" class="w-6 h-6" style="color:var(--field-border)"></i></div>
@@ -1221,15 +1235,33 @@
             const scr = document.getElementById('auth-screen');
             scr.classList.remove('hidden'); scr.classList.add('flex');
             document.getElementById('app-layout').classList.add('hidden');
-            const su = mode === 'signup';
-            document.getElementById('form-login').classList.toggle('hidden', su);
+            const su = mode === 'signup', sa = mode === 'superadmin';
+            document.getElementById('form-login').classList.toggle('hidden', su || sa);
             document.getElementById('form-signup').classList.toggle('hidden', !su);
-            document.getElementById('tab-login').classList.toggle('active', !su);
+            document.getElementById('form-superadmin').classList.toggle('hidden', !sa);
+            document.getElementById('tab-login').classList.toggle('active', !su && !sa);
             document.getElementById('tab-signup').classList.toggle('active', su);
             document.getElementById('login-err').classList.add('hidden');
             document.getElementById('signup-err').classList.add('hidden');
+            document.getElementById('superadmin-err').classList.add('hidden');
             lucide.createIcons();
         }
+
+        // Connexion du super administrateur (accès DÉDIÉ, séparé des
+        // associations : identifiants propres, dashboard global)
+        document.getElementById('form-superadmin').onsubmit = (e) => {
+            e.preventDefault();
+            const f = e.target;
+            const btn = f.querySelector('button[type="submit"]'); btn.disabled = true;
+            api('connexionSuperAdmin', f.email.value.trim(), f.mdp.value)
+                .then(r => {
+                    btn.disabled = false;
+                    if (r.status === 'error') { errAuth('superadmin-err', r.msg); return; }
+                    localStorage.setItem('mutasso_token', r.token);
+                    showToast(r.msg);
+                    demarrerApp(r.infos);
+                }).catch(err => { btn.disabled = false; errAuth('superadmin-err', String(err)); });
+        };
 
         function errAuth(id, msg) { const p = document.getElementById(id); p.innerText = msg; p.classList.remove('hidden'); }
 

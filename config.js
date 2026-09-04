@@ -29,8 +29,9 @@ const config = {
   VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || '',
   VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || '',
   VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:contact@mutasso.app',
-  // Super admins (emails séparés par des virgules) — à défaut, le compte fondateur
-  SUPER_ADMIN_EMAILS: process.env.SUPER_ADMIN_EMAILS || ''
+  // Accès DÉDIÉ du super administrateur (distinct des associations)
+  SUPER_ADMIN_EMAIL: process.env.SUPER_ADMIN_EMAIL || '',
+  SUPER_ADMIN_MDP: process.env.SUPER_ADMIN_MDP || ''
 };
 
 config.MODE_PG = !!config.DATABASE_URL;
