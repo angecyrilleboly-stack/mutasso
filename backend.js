@@ -619,6 +619,61 @@ async function compterAbonnementsMembres() {
   return { status: "success", nb: await push.compter(compteActif.id, 'membre') };
 }
 
+// CRÉANCES du membre connecté : mensualités non réglées depuis la
+// première mensualité d'activité de l'association + cotisations
+// exceptionnelles auxquelles il n'a pas participé + cumul total.
+// (Rappel : toutes les cotisations sont obligatoires.)
+function getCreancesMembre() {
+  if (!accesMembre) return { status: "error", msg: "Réservé aux membres connectés." };
+
+  // --- Mensualités : mois sans paiement depuis la 1re mensualité
+  // enregistrée dans l'association jusqu'au mois courant ---
+  const rows = SS.getSheetByName(SHEET_MENSUEL).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
+  const payes = new Set(rows
+    .filter(r => r[0].toString() === accesMembre.id)
+    .map(r => (MOIS_ADMIN.indexOf(String(r[2]))) + ',' + Number(r[3])));
+  let debut = null;
+  rows.forEach(r => {
+    const m = MOIS_ADMIN.indexOf(String(r[2])), a = Number(r[3]);
+    if (m < 0 || !a) return;
+    if (!debut || a * 12 + m < debut.a * 12 + debut.m) debut = { m: m, a: a };
+  });
+  const auj = new Date();
+  const mensualitesDu = [];
+  if (debut) {
+    for (let a = debut.a; a <= auj.getFullYear(); a++) {
+      const mMin = a === debut.a ? debut.m : 0;
+      const mMax = a === auj.getFullYear() ? auj.getMonth() : 11;
+      for (let m = mMin; m <= mMax; m++) {
+        if (!payes.has(m + ',' + a)) mensualitesDu.push({ mois: MOIS_ADMIN[m], annee: a });
+      }
+    }
+  }
+  const cfg = getMensualiteConfig();
+  const montantMens = cfg ? Number(cfg.montant) || 0 : 0;
+
+  // --- Exceptionnelles : chaque événement (motif) sans participation ---
+  const participes = new Set(SS.getSheetByName(SHEET_EXCEP).getDataRange().getValues().slice(1)
+    .filter(r => r[0] !== "" && r[0].toString() === accesMembre.id)
+    .map(r => String(r[2]).toUpperCase()));
+  const excepsDu = getTypesExcep()
+    .filter(t => !participes.has(String(t.label).toUpperCase()))
+    .map(t => ({ label: t.label, montant: Number(t.montant) || 0 }));
+
+  const totalMens = mensualitesDu.length * montantMens;
+  const totalExc = excepsDu.reduce((s, e) => s + e.montant, 0);
+  return {
+    status: "success",
+    mensualiteMontant: montantMens,
+    nbMensualitesDu: mensualitesDu.length,
+    mensualitesDu: mensualitesDu,
+    totalMensualites: totalMens,
+    excepsDu: excepsDu,
+    totalExceps: totalExc,
+    totalDu: totalMens + totalExc
+  };
+}
+
 function getMembres() {
   const s = SS.getSheetByName(SHEET_MEMBRES); const v = s.getDataRange().getValues();
   if (v.length <= 1) return [];
@@ -1555,5 +1610,6 @@ module.exports = {
   genererMdpMembre, supprimerAccesMembre, majMotDePasseMembre, idsAccesMembres,
   clePubliquePush, abonnerPush, testPushPerso, compterAbonnementsMembres,
   getVueGlobale, reinitialiserMdpAssociation, supprimerAssociation,
-  connexionSuperAdmin, majMotDePasseSuperAdmin, verifierSessionSuperAdmin, creerAssociationParSuperAdmin
+  connexionSuperAdmin, majMotDePasseSuperAdmin, verifierSessionSuperAdmin, creerAssociationParSuperAdmin,
+  getCreancesMembre
 };
