@@ -1478,18 +1478,13 @@
             const cloche = document.getElementById('btn-notif');
             const montrerCloche = v => { if (cloche) cloche.classList.toggle('hidden', !v); };
             if (window.roleActif !== 'membre') {
+                // GESTIONNAIRE : on ne touche PAS aux abonnements — un
+                // appareil abonné comme MEMBRE continue de recevoir les
+                // notifications de son association même si son
+                // propriétaire gère ensuite depuis ce même appareil.
+                // (La migration vers une autre association n'a lieu
+                // qu'à la connexion à un espace MEMBRE.)
                 montrerCloche(false);
-                // GESTIONNAIRE : cet appareil ne doit PAS recevoir les
-                // notifications membres. S'il avait été abonné lors
-                // d'une session membre précédente, on repasse son
-                // abonnement en rôle 'admin' (il ne reçoit plus).
-                try {
-                    if ('serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && Notification.permission === 'granted') {
-                        const enr = await navigator.serviceWorker.ready;
-                        const sub = await enr.pushManager.getSubscription();
-                        if (sub) await api('abonnerPush', sub.toJSON()).catch(() => {});
-                    }
-                } catch (e) { console.error(e); }
                 return;
             }
             if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
