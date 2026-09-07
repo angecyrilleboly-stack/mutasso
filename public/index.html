@@ -1529,8 +1529,8 @@
             if (window.roleActif !== 'membre') return;
             // Menus sans objet pour un membre (il garde Dashboard,
             // Réunions PV en lecture, Bureau, Mensualités, Spéciales,
-            // Dépenses, Rapports et Paramètres pour son mot de passe)
-            ['m-membres', 'm-point'].forEach(id => {
+            // Dépenses et Paramètres pour son mot de passe)
+            ['m-membres', 'm-point', 'm-rapports'].forEach(id => {
                 const el = document.getElementById(id); if (el) el.style.display = 'none';
             });
             // Boutons / cartes de gestion (Encaisser, Sortie, Nommer, Postes, config…)
@@ -1571,6 +1571,11 @@
         function toggleModal(id, s) { const m = document.getElementById(id); if (m) s ? m.classList.replace('hidden','flex') : m.classList.replace('flex','hidden'); }
 
         function showPage(id) {
+            // Les rapports sont réservés au gestionnaire de l'association
+            if (id === 'rapports' && window.roleActif === 'membre') {
+                showToast('Rapports réservés au gestionnaire.', 'error');
+                id = 'dashboard';
+            }
             document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
             document.querySelectorAll('.side-item').forEach(m => m.classList.remove('active'));
             const p = document.getElementById('p-'+id), menu = document.getElementById('m-'+id);
