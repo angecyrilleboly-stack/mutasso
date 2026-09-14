@@ -436,6 +436,7 @@
             <div onclick="showPage('membres'); closeSidebarMobile()" id="m-membres" class="side-item"><i data-lucide="users" class="w-[18px] h-[18px]"></i><span>Membres</span></div>
             <div onclick="showPage('reunions'); closeSidebarMobile()" id="m-reunions" class="side-item"><i data-lucide="file-text" class="w-[18px] h-[18px]"></i><span>Réunions (PV)</span></div>
             <div onclick="showPage('point'); closeSidebarMobile()" id="m-point" class="side-item"><i data-lucide="badge-check" class="w-[18px] h-[18px]"></i><span>Point Cotis.</span></div>
+            <div onclick="showPage('pointdet'); closeSidebarMobile()" id="m-pointdet" class="side-item"><i data-lucide="clipboard-list" class="w-[18px] h-[18px]"></i><span>Point détaillé</span></div>
             <div onclick="showPage('bureau'); closeSidebarMobile()" id="m-bureau" class="side-item"><i data-lucide="shield-check" class="w-[18px] h-[18px]"></i><span>Bureau</span></div>
             <div onclick="showPage('mensuel'); closeSidebarMobile()" id="m-mensuel" class="side-item"><i data-lucide="calendar-check" class="w-[18px] h-[18px]"></i><span>Mensualités</span></div>
             <div onclick="showPage('excep'); closeSidebarMobile()" id="m-excep" class="side-item"><i data-lucide="star" class="w-[18px] h-[18px]"></i><span>Exceptionnelles</span></div>
@@ -764,6 +765,41 @@
                         <tbody id="table-point"></tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- ============ POINT DÉTAILLÉ (gestionnaire) ============ -->
+            <div id="p-pointdet" class="page hidden">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-7">
+                    <div>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--out)"></span>Point détaillé</h3>
+                        <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Créances de chaque membre — toutes cotisations obligatoires</p>
+                    </div>
+                    <button onclick="exportCSV('table-pointdet', 'Point_Detaille.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="app-card stat-card">
+                        <p class="label-style">Membres redevables</p>
+                        <h3 id="pd-nb-endettes" class="text-[30px] font-black tracking-tight leading-none" style="color:var(--out)">0</h3>
+                        <div class="mt-3"><span class="chip chip-neutral"><i data-lucide="users" class="w-3 h-3"></i>sur <span id="pd-nb-total">0</span> membres</span></div>
+                    </div>
+                    <div class="app-card stat-card">
+                        <p class="label-style">Mensualité (FCFA)</p>
+                        <h3 id="pd-mensualite" class="text-[30px] font-black tracking-tight leading-none">0</h3>
+                        <div class="mt-3"><span class="chip chip-neutral"><i data-lucide="banknote" class="w-3 h-3"></i>par mois dû</span></div>
+                    </div>
+                    <div class="app-card stat-card">
+                        <p class="label-style">Total des créances (FCFA)</p>
+                        <h3 id="pd-total" class="text-[30px] font-black tracking-tight leading-none" style="color:var(--out)">0</h3>
+                        <div class="mt-3"><span class="chip chip-neutral"><i data-lucide="wallet" class="w-3 h-3"></i>toutes membres confondus</span></div>
+                    </div>
+                </div>
+                <div class="app-card overflow-hidden">
+                    <table class="app-table">
+                        <thead><tr><th>Membre</th><th>Mensualités dues</th><th>Événements non réglés</th><th class="text-right !pr-8">Total dû</th></tr></thead>
+                        <tbody id="table-pointdet"></tbody>
+                    </table>
+                </div>
+                <p class="text-[9.5px] font-bold mt-4 leading-relaxed" style="color:var(--muted)">Touchez une ligne pour voir le détail (mois précis et événements). Les mensualités sont comptées depuis la première mensualité d'activité de l'association jusqu'au mois courant.</p>
             </div>
 
             <!-- ============ BUREAU ============ -->
@@ -1558,7 +1594,7 @@
             // Menus sans objet pour un membre (il garde Dashboard,
             // Réunions PV en lecture, Bureau, Mensualités, Spéciales,
             // Dépenses et Paramètres pour son mot de passe)
-            ['m-membres', 'm-point', 'm-rapports'].forEach(id => {
+            ['m-membres', 'm-point', 'm-pointdet', 'm-rapports'].forEach(id => {
                 const el = document.getElementById(id); if (el) el.style.display = 'none';
             });
             // Boutons / cartes de gestion (Encaisser, Sortie, Nommer, Postes, config…)
@@ -1599,7 +1635,11 @@
         function toggleModal(id, s) { const m = document.getElementById(id); if (m) s ? m.classList.replace('hidden','flex') : m.classList.replace('flex','hidden'); }
 
         function showPage(id) {
-            // Les rapports sont réservés au gestionnaire de l'association
+            // Les rapports et le point détaillé sont réservés au gestionnaire
+            if (id === 'pointdet' && window.roleActif !== 'admin') {
+                showToast('Point détaillé réservé au gestionnaire.', 'error');
+                id = 'dashboard';
+            }
             if (id === 'rapports' && window.roleActif === 'membre') {
                 showToast('Rapports réservés au gestionnaire.', 'error');
                 id = 'dashboard';
@@ -1615,6 +1655,7 @@
             else if (id === 'membres') loadMembres();
             else if (id === 'reunions') loadReunions();
             else if (id === 'point') { initPointDefauts(); loadExcepSearchMotifs(); loadPointPaiement(); }
+            else if (id === 'pointdet') loadPointDetaille();
             else if (id === 'bureau') { loadBureau(); loadPostes(); }
             else if (id === 'mensuel') { loadMensuel(); loadMensualiteConfig(); }
             else if (id === 'excep') { loadExcep(); loadExcepSearchMotifs(); loadExcepTypesList(); }
@@ -1735,6 +1776,39 @@
             } catch (e) { console.error(e); }
             // DERNIÈRES OPÉRATIONS : réservées au gestionnaire
             if (window.roleActif !== 'membre') loadRecent();
+        }
+
+        /* ============ POINT DÉTAILLÉ : créances de chaque membre ============ */
+        async function loadPointDetaille() {
+            const box = document.getElementById('table-pointdet');
+            if (!box) return;
+            box.innerHTML = emptyRow(4, 'Chargement…');
+            try {
+                const r = await api('getPointDetaille');
+                if (!r || r.status === 'error') { box.innerHTML = emptyRow(4, (r && r.msg) || 'Indisponible'); return; }
+                document.getElementById('pd-nb-endettes').innerText = r.nbEndettes;
+                document.getElementById('pd-nb-total').innerText = r.membres.length;
+                document.getElementById('pd-mensualite').innerText = fmt(r.mensualiteMontant);
+                document.getElementById('pd-total').innerText = fmt(r.totalGeneral);
+                box.innerHTML = r.membres.length ? r.membres.map((m, i) => {
+                    const detail = (m.mensualitesDu.length ? '<b>Mensualités :</b> ' + m.mensualitesDu.join(', ') : '') +
+                        (m.excepsDu.length ? (m.mensualitesDu.length ? '<br>' : '') + '<b>Événements :</b> ' + m.excepsDu.join(', ') : '');
+                    return '<tr class="cursor-pointer" onclick="basculerDetailPointdet(' + i + ')">' +
+                        '<td><div class="flex items-center gap-3.5"><div class="avatar-sm">' + esc(m.nom.charAt(0)) + esc(m.prenom.charAt(0)) + '</div><div><p class="t-name">' + esc(m.nom) + ' ' + esc(m.prenom) + '</p><p class="t-sub">' + (m.totalDu === 0 ? 'à jour' : 'redevable') + '</p></div></div></td>' +
+                        '<td>' + (m.nbMensualitesDu ? '<span class="pill pill-ko">' + m.nbMensualitesDu + ' mois — ' + fmt(m.totalMensualites) + ' F</span>' : '<span class="pill pill-ok">à jour</span>') + '</td>' +
+                        '<td>' + (m.excepsDu.length ? '<span class="pill pill-ko">' + m.excepsDu.length + ' — ' + fmt(m.totalExceps) + ' F</span>' : '<span class="pill pill-ok">tous réglés</span>') + '</td>' +
+                        '<td class="td-amount ' + (m.totalDu > 0 ? 'td-out' : 'td-in') + ' !pr-8">' + fmt(m.totalDu) + ' FCFA</td>' +
+                        '</tr>' +
+                        '<tr id="pd-detail-' + i + '" class="hidden"><td colspan="4" style="background:var(--field);font-size:11px;font-weight:600;padding:12px 20px;color:var(--muted)">' + (detail || 'Aucune créance — membre parfaitement à jour.') + '</td></tr>';
+                }).join('') : emptyRow(4, 'Aucun membre enregistré');
+                window._pointdet = r.membres;
+                lucide.createIcons();
+            } catch (e) { console.error(e); box.innerHTML = emptyRow(4, 'Erreur de chargement'); }
+        }
+
+        function basculerDetailPointdet(i) {
+            const l = document.getElementById('pd-detail-' + i);
+            if (l) l.classList.toggle('hidden');
         }
 
         /* ============ MEMBRE : mes cotisations dues ============ */

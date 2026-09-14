@@ -674,6 +674,81 @@ function getCreancesMembre() {
   };
 }
 
+// POINT DÉTAILLÉ (gestionnaire) : créances de CHAQUE membre en une
+// seule passe — mensualités manquantes depuis la 1re mensualité
+// d'activité, événements exceptionnels sans participation, cumuls.
+// Tri par montant dû décroissant (les plus gros débiteurs en tête).
+function getPointDetaille() {
+  if (!compteActif || compteActif.id === 'SUPER' || accesMembre) {
+    return { status: "error", msg: "Réservé au gestionnaire de l'association." };
+  }
+  const membres = getMembres();
+  const rows = SS.getSheetByName(SHEET_MENSUEL).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
+  const excRows = SS.getSheetByName(SHEET_EXCEP).getDataRange().getValues().slice(1).filter(r => r[0] !== "");
+
+  // Paiements mensuels par membre : id -> Set("mois,annee")
+  const payesParMembre = {};
+  rows.forEach(r => {
+    const id = r[0].toString();
+    const mi = MOIS_ADMIN.indexOf(String(r[2]));
+    if (mi < 0 || !Number(r[3])) return;
+    (payesParMembre[id] = payesParMembre[id] || new Set()).add(mi + ',' + Number(r[3]));
+  });
+
+  // Participation aux événements par membre : id -> Set(motif)
+  const participesParMembre = {};
+  excRows.forEach(r => {
+    const id = r[0].toString();
+    (participesParMembre[id] = participesParMembre[id] || new Set()).add(String(r[2]).toUpperCase());
+  });
+
+  // Période d'activité : de la 1re mensualité au mois courant
+  let debut = null;
+  rows.forEach(r => {
+    const m = MOIS_ADMIN.indexOf(String(r[2])), a = Number(r[3]);
+    if (m < 0 || !a) return;
+    if (!debut || a * 12 + m < debut.a * 12 + debut.m) debut = { m: m, a: a };
+  });
+  const auj = new Date();
+  const tousLesMois = [];
+  if (debut) {
+    for (let a = debut.a; a <= auj.getFullYear(); a++) {
+      const mMin = a === debut.a ? debut.m : 0;
+      const mMax = a === auj.getFullYear() ? auj.getMonth() : 11;
+      for (let m = mMin; m <= mMax; m++) tousLesMois.push({ label: MOIS_ADMIN[m] + ' ' + a, cle: m + ',' + a });
+    }
+  }
+
+  const cfg = getMensualiteConfig();
+  const montantMens = cfg ? Number(cfg.montant) || 0 : 0;
+  const types = getTypesExcep().map(t => ({ label: t.label, montant: Number(t.montant) || 0 }));
+
+  const lignes = membres.map(mb => {
+    const payes = payesParMembre[mb.id] || new Set();
+    const mensualitesDu = tousLesMois.filter(x => !payes.has(x.cle));
+    const participes = participesParMembre[mb.id] || new Set();
+    const excepsDu = types.filter(t => !participes.has(String(t.label).toUpperCase()));
+    const totalMens = mensualitesDu.length * montantMens;
+    const totalExc = excepsDu.reduce((s, e) => s + e.montant, 0);
+    return {
+      id: mb.id, nom: mb.nom, prenom: mb.prenom,
+      mensualitesDu: mensualitesDu.map(x => x.label),
+      nbMensualitesDu: mensualitesDu.length,
+      totalMensualites: totalMens,
+      excepsDu: excepsDu.map(e => e.label),
+      totalExceps: totalExc,
+      totalDu: totalMens + totalExc
+    };
+  }).sort((a, b) => b.totalDu - a.totalDu);
+
+  return {
+    status: "success",
+    mensualiteMontant: montantMens,
+    totalGeneral: lignes.reduce((s, l) => s + l.totalDu, 0),
+    nbEndettes: lignes.filter(l => l.totalDu > 0).length,
+    membres: lignes
+  };
+}
 function getMembres() {
   const s = SS.getSheetByName(SHEET_MEMBRES); const v = s.getDataRange().getValues();
   if (v.length <= 1) return [];
@@ -1611,5 +1686,5 @@ module.exports = {
   clePubliquePush, abonnerPush, testPushPerso, compterAbonnementsMembres,
   getVueGlobale, reinitialiserMdpAssociation, supprimerAssociation,
   connexionSuperAdmin, majMotDePasseSuperAdmin, verifierSessionSuperAdmin, creerAssociationParSuperAdmin,
-  getCreancesMembre
+  getCreancesMembre, getPointDetaille
 };
