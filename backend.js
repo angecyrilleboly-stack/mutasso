@@ -656,9 +656,9 @@ function getCreancesMembre() {
   const participes = new Set(SS.getSheetByName(SHEET_EXCEP).getDataRange().getValues().slice(1)
     .filter(r => r[0] !== "" && r[0].toString() === accesMembre.id)
     .map(r => String(r[2]).toUpperCase()));
-  const excepsDu = getTypesExcep()
+  const excepsDu = getTypesExcepTous()
     .filter(t => !participes.has(String(t.label).toUpperCase()))
-    .map(t => ({ label: t.label, montant: Number(t.montant) || 0 }));
+    .map(t => ({ label: t.label, montant: t.montant }));
 
   const totalMens = mensualitesDu.length * montantMens;
   const totalExc = excepsDu.reduce((s, e) => s + e.montant, 0);
@@ -721,7 +721,7 @@ function getPointDetaille() {
 
   const cfg = getMensualiteConfig();
   const montantMens = cfg ? Number(cfg.montant) || 0 : 0;
-  const types = getTypesExcep().map(t => ({ label: t.label, montant: Number(t.montant) || 0 }));
+  const types = getTypesExcepTous().map(t => ({ label: t.label, montant: t.montant }));
 
   const lignes = membres.map(mb => {
     const payes = payesParMembre[mb.id] || new Set();
@@ -935,18 +935,48 @@ function enregistrerDepense(d) {
   return envoi.then(r => { log.info("Sortie d'argent validée", { evenement: "sortie", compteId: compteActif ? compteActif.id : null, objet: String(d.motif || "").toUpperCase(), montant: Number(d.montant) || 0, membresNotifies: r.envoyees || 0 }); return {status:"success", msg:"Sortie validée !", membresNotifies: r.envoyees || 0}; });
 }
 
-function getTypesExcep() { const s = SS.getSheetByName(SHEET_TYPES_EXCEP);
-  if (!s || s.getLastRow() <= 1) return []; return s.getDataRange().getValues().slice(1).map((r, i) => ({ id: i + 2, label: r[0].toString().toUpperCase(), montant: r[1] }));
+// TOUS les motifs, y compris archivés (suppression logique) —
+// utilisé par les calculs afin qu'aucune cotisation ne disparaisse
+// des totaux quand un motif est retiré de la liste.
+// Colonnes : [Libellé, Montant, Date_Creation, Archive]
+function getTypesExcepTous() {
+  const s = SS.getSheetByName(SHEET_TYPES_EXCEP);
+  if (!s || s.getLastRow() <= 1) return [];
+  // Migration douce : ajoute les colonnes aux anciens classeurs
+  const entetes = s.getRange(1, 1, 1, 4).getValues()[0];
+  if (!entetes[2] || !entetes[3]) s.getRange(1, 3, 1, 2).setValues([["Date_Creation", "Archive"]]);
+  return s.getDataRange().getValues().slice(1)
+    .map((r, i) => ({
+      id: i + 2,
+      label: r[0] ? r[0].toString().toUpperCase() : "",
+      montant: Number(r[1]) || 0,
+      dateCreation: r[2] ? String(r[2]) : "",
+      archive: String(r[3] || "").toUpperCase() === "OUI"
+    }))
+    .filter(t => t.label !== "");
 }
+
+// Motifs ACTIFS (visibles dans les listes et l'encaissement)
+function getTypesExcep() {
+  return getTypesExcepTous().filter(t => !t.archive)
+    .map(t => ({ id: t.id, label: t.label, montant: t.montant, dateCreation: t.dateCreation }));
+}
+
+// Motifs actifs + archivés (export public : recherche, point cotis.)
+function getTypesExcepAvecArchives() { return getTypesExcepTous(); }
 
 function enregistrerTypeExcep(d) {
   const s = SS.getSheetByName(SHEET_TYPES_EXCEP);
   const row = [d.label.toUpperCase(), d.montant];
   if (d.id) {
-    // Modification d'un motif existant : pas de notification
+    // Modification : le libellé et le montant seulement — la date
+    // de création et le statut d'archivage sont préservés
     s.getRange(d.id, 1, 1, 2).setValues([row]);
     return { status: "success", msg: "Motif sauvegardé !" };
   }
+  // Création : la DATE DU JOUR est enregistrée avec le motif
+  const dateCreation = new Date().toLocaleDateString('fr-FR');
+  row.push(dateCreation, "");
   // NOUVEL événement de cotisation créé : les MEMBRES sont prévenus
   // (nom de la cotisation + montant à participer).
   s.appendRow(row);
@@ -1039,7 +1069,14 @@ function supprimerPoste(id) { SS.getSheetByName(SHEET_POSTES).deleteRow(id); ret
 function nommerMembre(d) { SS.getSheetByName(SHEET_BUREAU).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.poste, new Date().toLocaleDateString('fr-FR')]);
   return { status: "success", msg: "Nomination réussie !" }; }
 
-function supprimerTypeExcep(id) { SS.getSheetByName(SHEET_TYPES_EXCEP).deleteRow(id); return { status: "success", msg: "Motif supprimé." }; }
+// Suppression LOGIQUE : le motif est retiré des listes (archive)
+// mais conservé en base — aucune cotisation, aucun total ni
+// historique lié n'est supprimé ni altéré.
+function supprimerTypeExcep(id) {
+  SS.getSheetByName(SHEET_TYPES_EXCEP).getRange(Number(id), 4, 1, 1).setValues([["OUI"]]);
+  log.info("Motif exceptionnel archivé (suppression logique)", { evenement: "archive_motif_excep", compteId: compteActif ? compteActif.id : null, ligne: Number(id) });
+  return { status: "success", msg: "Motif retiré de la liste (historique conservé)." };
+}
 
 function supprimerTypeMensuel(id) { SS.getSheetByName(SHEET_TYPES_MENSUELS).deleteRow(id); return { status: "success", msg: "Supprimée." }; }
 
@@ -1149,7 +1186,7 @@ function getRapportJour() {
   const aJour = etatMens.filter(x => x.aPaye).map(x => x.id);
   const nonAJour = etatMens.filter(x => !x.aPaye).map(x => x.id);
 
-  const events = getTypesExcep().map(t => {
+  const events = getTypesExcepTous().map(t => {
     const payeurs = getEtatPaiements('excep', t.label, null).filter(x => x.aPaye).map(x => x.id);
     return { label: t.label, montant: Number(t.montant) || 0, payeurs: payeurs, nbPayeurs: payeurs.length };
   });
@@ -1678,7 +1715,7 @@ module.exports = {
   getMembres, getDashboardStats, getChartData, getEtatPaiements, getMembreProfile,
   getReunions, enregistrerReunion, supprimerReunion, getMensuels, getExceps, getDepenses,
   ajouterMembre, modifierMembre, enregistrerMensuel, enregistrerExcep, enregistrerDepense,
-  getTypesExcep, enregistrerTypeExcep, getTypesMensuels, enregistrerTypeMensuel, getMensualiteConfig, majMontantMensualite,
+  getTypesExcep, getTypesExcepAvecArchives, enregistrerTypeExcep, getTypesMensuels, enregistrerTypeMensuel, getMensualiteConfig, majMontantMensualite,
   getAssocInfos, saveAssocInfos, getBureau, getPostes, nommerMembre, enregistrerPoste, supprimerPoste,
   supprimerTypeExcep, supprimerTypeMensuel, uploadFileToDrive, autoriserDrive,
   genererPV_IA, testAutorisationIA, initialiserMUTASSO, seedDefaults,

@@ -2321,7 +2321,9 @@
         }
 
         function loadExcepSearchMotifs() {
-            api('getTypesExcep').then(t => {
+            // Recherche et point : les motifs retirés de la liste
+            // restent disponibles (leurs cotisations existent toujours)
+            api('getTypesExcepAvecArchives').then(t => {
                 const opts = t.map(x => `<option value="${esc(x.label)}">${esc(x.label)}</option>`).join('');
                 document.getElementById('search-e-motif').innerHTML = `<option value="">Toutes</option>` + opts;
                 document.getElementById('point-motif').innerHTML = `<option value="">-- Sélectionner --</option>` + opts;
@@ -2508,9 +2510,9 @@
             api('getTypesExcep').then(t => {
                 document.getElementById('list-excep-types').innerHTML = t.length ? t.map(x => `<div class="flex items-center gap-3 p-3 rounded-2xl" style="background:var(--field);border:1px solid var(--field-border)">
                     <div class="icon-tile it-viol" style="width:34px;height:34px;border-radius:11px"><i data-lucide="star" class="w-3.5 h-3.5"></i></div>
-                    <div class="flex-1 min-w-0"><p class="font-extrabold text-[11.5px] uppercase truncate" title="${esc(x.label)}">${esc(x.label)}</p><p class="font-extrabold text-[10.5px]" style="color:var(--viol)">${fmt(x.montant)} FCFA</p></div>
+                    <div class="flex-1 min-w-0"><p class="font-extrabold text-[11.5px] uppercase truncate" title="${esc(x.label)}">${esc(x.label)}</p><p class="font-extrabold text-[10.5px]" style="color:var(--viol)">${fmt(x.montant)} FCFA</p>${x.dateCreation ? '<p class="text-[8.5px] font-bold uppercase tracking-wide mt-0.5" style="color:var(--muted)">Créé le ' + esc(x.dateCreation) + '</p>' : ''}</div>
                     <button onclick="editE(${x.id},'${esc(x.label)}',${x.montant})" class="icon-btn" title="Modifier"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
-                    <button onclick="askConfirm('Supprimer « ${esc(x.label)} » ?', ()=>delE(${x.id}))" class="icon-btn red" title="Supprimer"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    <button onclick="askConfirm('Retirer « ${esc(x.label)} » de la liste ? Ses cotisations et historiques sont conservés.', ()=>delE(${x.id}))" class="icon-btn red" title="Retirer de la liste"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                 </div>`).join('') : '<p class="text-[10.5px] italic font-bold text-center py-4 leading-relaxed" style="color:var(--muted)">Aucun motif pour l\'instant.<br>Ajoutez vos cotisations spéciales ci-dessous.</p>';
                 lucide.createIcons();
             }).catch(console.error);
@@ -2837,7 +2839,7 @@ ${formuleLevee}</div>
             });
         }
 
-        function delE(i) { api('supprimerTypeExcep', i).then(r => { showToast(r.msg, 'error'); loadExcepTypesList(); loadExcepSearchMotifs(); }).catch(console.error); }
+        function delE(i) { api('supprimerTypeExcep', i).then(r => { showToast(r.msg); loadExcepTypesList(); loadExcepSearchMotifs(); }).catch(console.error); }
         function editE(i, l, v) { document.getElementById('edit-e-id').value = i; document.getElementById('e-label').value = l; document.getElementById('e-val').value = v; }
         function resetTypeExcepForm() { document.getElementById('edit-e-id').value = ''; document.getElementById('form-type-excep').reset(); }
 
