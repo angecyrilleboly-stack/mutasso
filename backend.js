@@ -744,6 +744,8 @@ function getPointDetaille() {
   return {
     status: "success",
     mensualiteMontant: montantMens,
+    totalMensualitesDu: lignes.reduce((s, l) => s + l.totalMensualites, 0),
+    totalExcepsDu: lignes.reduce((s, l) => s + l.totalExceps, 0),
     totalGeneral: lignes.reduce((s, l) => s + l.totalDu, 0),
     nbEndettes: lignes.filter(l => l.totalDu > 0).length,
     membres: lignes

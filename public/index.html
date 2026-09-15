@@ -776,16 +776,21 @@
                     </div>
                     <button onclick="exportCSV('table-pointdet', 'Point_Detaille.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                     <div class="app-card stat-card">
                         <p class="label-style">Membres redevables</p>
                         <h3 id="pd-nb-endettes" class="text-[30px] font-black tracking-tight leading-none" style="color:var(--out)">0</h3>
                         <div class="mt-3"><span class="chip chip-neutral"><i data-lucide="users" class="w-3 h-3"></i>sur <span id="pd-nb-total">0</span> membres</span></div>
                     </div>
                     <div class="app-card stat-card">
-                        <p class="label-style">Mensualité (FCFA)</p>
-                        <h3 id="pd-mensualite" class="text-[30px] font-black tracking-tight leading-none">0</h3>
-                        <div class="mt-3"><span class="chip chip-neutral"><i data-lucide="banknote" class="w-3 h-3"></i>par mois dû</span></div>
+                        <p class="label-style">Total mensualités dues</p>
+                        <h3 id="pd-total-mens" class="text-[30px] font-black tracking-tight leading-none">0</h3>
+                        <div class="mt-3"><span class="chip chip-neutral"><i data-lucide="calendar-check" class="w-3 h-3"></i>mois non réglés cumulés</span></div>
+                    </div>
+                    <div class="app-card stat-card">
+                        <p class="label-style">Total exceptionnelles dues</p>
+                        <h3 id="pd-total-exc" class="text-[30px] font-black tracking-tight leading-none" style="color:var(--viol)">0</h3>
+                        <div class="mt-3"><span class="chip chip-neutral"><i data-lucide="star" class="w-3 h-3"></i>événements non participés</span></div>
                     </div>
                     <div class="app-card stat-card">
                         <p class="label-style">Total des créances (FCFA)</p>
@@ -1788,7 +1793,8 @@
                 if (!r || r.status === 'error') { box.innerHTML = emptyRow(4, (r && r.msg) || 'Indisponible'); return; }
                 document.getElementById('pd-nb-endettes').innerText = r.nbEndettes;
                 document.getElementById('pd-nb-total').innerText = r.membres.length;
-                document.getElementById('pd-mensualite').innerText = fmt(r.mensualiteMontant);
+                document.getElementById('pd-total-mens').innerText = fmt(r.totalMensualitesDu);
+                document.getElementById('pd-total-exc').innerText = fmt(r.totalExcepsDu);
                 document.getElementById('pd-total').innerText = fmt(r.totalGeneral);
                 box.innerHTML = r.membres.length ? r.membres.map((m, i) => {
                     const detail = (m.mensualitesDu.length ? '<b>Mensualités :</b> ' + m.mensualitesDu.join(', ') : '') +
