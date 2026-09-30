@@ -1307,6 +1307,18 @@
         });
         const fmt = n => Number(n || 0).toLocaleString('fr-FR');
         const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        // Sécurise une chaîne qui sera injectée comme ARGUMENT JS dans un
+        // attribut onclick="..." (délimité par des guillemets doubles) :
+        //  - les apostrophes sont échappées pour le JS (\') ;
+        //  - les guillemets doubles sont encodés en HTML (&quot;) pour ne pas
+        //    fermer l'attribut prématurément (le navigateur les redécode en
+        //    runtime, inoffensifs dans une chaîne JS à simple guillemet).
+        // Empêche les libellés contenant une apostrophe (ex. "FÊTE DE FIN
+        // D'ANNÉE") de casser onclick et de bloquer supprimer/modifier.
+        const sq = s => {
+            const t = String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\r?\n/g, '\\n');
+            return "'" + t + "'";
+        };
 
         // Montant en lettres (français) pour les reçus
         function enLettres(n) {
@@ -1911,8 +1923,8 @@
                     <td><span class="date-pill"><i data-lucide="phone" class="w-3 h-3"></i>${esc(a.contact || '—')}</span></td>
                     <td class="td-amount td-in">${fmt(a.caisse)} FCFA</td>
                     <td class="text-right !pr-8"><div class="flex items-center justify-end gap-1">
-                        <button onclick="resetMdpAssociation('${esc(a.id)}', '${esc(a.nom)}')" class="icon-btn" title="Réinitialiser le mot de passe"><i data-lucide="key-round" class="w-4 h-4"></i></button>
-                        <button onclick="supprAssociation('${esc(a.id)}', '${esc(a.nom)}')" class="icon-btn red" title="Supprimer l'association"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        <button onclick="resetMdpAssociation(${sq(a.id)}, ${sq(a.nom)})" class="icon-btn" title="Réinitialiser le mot de passe"><i data-lucide="key-round" class="w-4 h-4"></i></button>
+                        <button onclick="supprAssociation(${sq(a.id)}, ${sq(a.nom)})" class="icon-btn red" title="Supprimer l'association"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </div></td>
                 </tr>`).join('') : emptyRow(5, 'Aucune association inscrite');
                 lucide.createIcons();
@@ -2246,7 +2258,7 @@
                         + actifs.map(m => `<div class="flex items-center gap-3 p-3 rounded-2xl" style="background:var(--field);border:1px solid var(--field-border)">
                             <div class="icon-tile it-teal" style="width:34px;height:34px;border-radius:11px"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i></div>
                             <span class="flex-1 font-extrabold text-[11.5px] uppercase tracking-wide truncate">${esc(m.nom)} ${esc(m.prenom)}</span>
-                            <button onclick="revoquerAcces('${esc(m.id)}', '${esc(m.nom)}')" class="icon-btn red" title="Révoquer l'accès"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                            <button onclick="revoquerAcces(${sq(m.id)}, ${sq(m.nom)})" class="icon-btn red" title="Révoquer l'accès"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                         </div>`).join('')
                     : '';
                 lucide.createIcons();
@@ -2314,7 +2326,7 @@
                     <td class="t-name">${esc(r.nom)}</td>
                     <td><span class="pill periode-pill"><i data-lucide="calendar" class="w-3 h-3"></i>${esc(r.periode)}</span></td>
                     <td class="td-amount td-in">${fmt(r.montant)} FCFA</td>
-                    <td class="text-right !pr-8"><div class="flex gap-1.5 justify-end"><button onclick="generateReceipt('${esc(r.nom)}', 'Mensualité: ${esc(r.periode)}', ${r.montant}, '${esc(r.date)}')" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button></div></td>
+                    <td class="text-right !pr-8"><div class="flex gap-1.5 justify-end"><button onclick="generateReceipt(${sq(r.nom)}, 'Mensualité: ' + ${sq(r.periode)}, ${r.montant}, ${sq(r.date)})" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button></div></td>
                 </tr>`).join('') : emptyRow(4, 'Aucun paiement trouvé');
                 lucide.createIcons();
             }).catch(console.error);
@@ -2351,7 +2363,7 @@
                 <td class="t-name">${esc(r.nom)}</td>
                 <td><span class="pill motif-pill"><i data-lucide="star" class="w-3 h-3"></i>${esc(r.motif)}</span></td>
                 <td class="td-amount td-viol">${fmt(r.montant)} FCFA</td>
-                <td class="text-right !pr-8"><div class="flex gap-1.5 justify-end"><button onclick="generateReceipt('${esc(r.nom)}', 'Spéciale: ${esc(r.motif)}', ${r.montant}, '${esc(r.date)}')" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button></div></td>
+                <td class="text-right !pr-8"><div class="flex gap-1.5 justify-end"><button onclick="generateReceipt(${sq(r.nom)}, 'Spéciale: ' + ${sq(r.motif)}, ${r.montant}, ${sq(r.date)})" class="receipt-btn"><i data-lucide="printer" class="w-3 h-3"></i>Reçu</button></div></td>
             </tr>`).join('') : emptyRow(4, recherche ? 'Aucun résultat pour cette recherche' : 'Aucune cotisation trouvée');
             lucide.createIcons();
         }
@@ -2383,8 +2395,8 @@
                 document.getElementById('list-postes').innerHTML = t.length ? t.map(x => `<div class="flex items-center gap-3 p-3 rounded-2xl" style="background:var(--field);border:1px solid var(--field-border)">
                     <div class="icon-tile it-blue" style="width:34px;height:34px;border-radius:11px"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i></div>
                     <span class="flex-1 font-extrabold text-[11.5px] uppercase tracking-wide truncate" title="${esc(x.label)}">${esc(x.label)}</span>
-                    <button onclick="editP(${x.id},'${esc(x.label)}')" class="icon-btn" title="Renommer"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
-                    <button onclick="askConfirm('Supprimer le poste « ${esc(x.label)} » ?', () => delP(${x.id}))" class="icon-btn red" title="Supprimer"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    <button onclick="editP(${x.id},${sq(x.label)})" class="icon-btn" title="Renommer"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+                    <button onclick="askConfirm('Supprimer le poste « ' + ${sq(x.label)} + ' » ?', () => delP(${x.id}))" class="icon-btn red" title="Supprimer"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                 </div>`).join('') : '<p class="text-[10.5px] italic font-bold text-center py-4 leading-relaxed" style="color:var(--muted)">Aucun poste pour l\'instant.<br>Ajoutez la composition de votre bureau ci-dessous.</p>';
                 lucide.createIcons();
             }).catch(console.error);
@@ -2511,8 +2523,8 @@
                 document.getElementById('list-excep-types').innerHTML = t.length ? t.map(x => `<div class="flex items-center gap-3 p-3 rounded-2xl" style="background:var(--field);border:1px solid var(--field-border)">
                     <div class="icon-tile it-viol" style="width:34px;height:34px;border-radius:11px"><i data-lucide="star" class="w-3.5 h-3.5"></i></div>
                     <div class="flex-1 min-w-0"><p class="font-extrabold text-[11.5px] uppercase truncate" title="${esc(x.label)}">${esc(x.label)}</p><p class="font-extrabold text-[10.5px]" style="color:var(--viol)">${fmt(x.montant)} FCFA</p>${x.dateCreation ? '<p class="text-[8.5px] font-bold uppercase tracking-wide mt-0.5" style="color:var(--muted)">Créé le ' + esc(x.dateCreation) + '</p>' : ''}</div>
-                    <button onclick="editE(${x.id},'${esc(x.label)}',${x.montant})" class="icon-btn" title="Modifier"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
-                    <button onclick="askConfirm('Retirer « ${esc(x.label)} » de la liste ? Ses cotisations et historiques sont conservés.', ()=>delE(${x.id}))" class="icon-btn red" title="Retirer de la liste"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    <button onclick="editE(${x.id},${sq(x.label)},${x.montant})" class="icon-btn" title="Modifier"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+                    <button onclick="askConfirm('Retirer « ' + ${sq(x.label)} + ' » de la liste ? Ses cotisations et historiques sont conservés.', ()=>delE(${x.id}))" class="icon-btn red" title="Retirer de la liste"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                 </div>`).join('') : '<p class="text-[10.5px] italic font-bold text-center py-4 leading-relaxed" style="color:var(--muted)">Aucun motif pour l\'instant.<br>Ajoutez vos cotisations spéciales ci-dessous.</p>';
                 lucide.createIcons();
             }).catch(console.error);
