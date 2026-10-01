@@ -1032,6 +1032,11 @@
                         <h4 class="font-black text-xs uppercase tracking-wide">Mot de passe</h4>
                         <p class="text-[11px] font-semibold text-center leading-relaxed" style="color:var(--muted)">Mettre à jour votre mot de passe</p>
                     </div>
+                    <div class="app-card tile-hover p-10 flex flex-col items-center gap-5 admin-only" onclick="openModalNotifications()">
+                        <div class="icon-tile it-teal" style="width:60px;height:60px;border-radius:20px"><i data-lucide="bell-ring" class="w-7 h-7"></i></div>
+                        <h4 class="font-black text-xs uppercase tracking-wide">Notifications</h4>
+                        <p class="text-[11px] font-semibold text-center leading-relaxed" style="color:var(--muted)">Activer ou couper chaque type d'annonce aux membres</p>
+                    </div>
                 </div>
             </div>
 
@@ -1263,6 +1268,21 @@
                     <button type="button" onclick="toggleModal('modal-mdp', false)" class="btn-cancel px-6">Annuler</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- ============ MODAL NOTIFICATIONS (réglages gérant) ============ -->
+    <div id="modal-notifs" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-sm p-8">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic it-teal"><i data-lucide="bell-ring" class="w-5 h-5"></i></div>
+                <div><h3 class="text-lg font-black uppercase tracking-tight">Notifications</h3><p class="text-[9.5px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--muted)">Annonces envoyées aux membres</p></div>
+            </div>
+            <div class="space-y-3" id="liste-notifs-reglages"><p class="text-[10.5px] italic font-bold text-center py-3" style="color:var(--muted)">Chargement…</p></div>
+            <div class="flex gap-3 pt-5">
+                <button type="button" onclick="enregistrerNotifs()" class="btn-primary flex-1 justify-center">Enregistrer</button>
+                <button type="button" onclick="toggleModal('modal-notifs', false)" class="btn-cancel px-6">Annuler</button>
+            </div>
         </div>
     </div>
 
@@ -2529,6 +2549,38 @@
                 toggleModal('modal-mdp', false);
             }).catch(err => errAuth('mdp-err', String(err)));
         };
+
+        /* ============ PARAMÈTRES : RÉGLAGES NOTIFICATIONS ============ */
+        // Le gérant active/coupe CHAQUE type d'annonce aux membres
+        // individuellement (l'état est enregistré par association).
+        const TYPES_NOTIF = [
+            { cle: 'sortie', ic: 'arrow-up-right', titre: "Sortie d'argent", desc: "Annonce chaque sortie de caisse" },
+            { cle: 'excep', ic: 'star', titre: 'Cotisation exceptionnelle', desc: "Annonce chaque nouvelle cotisation spéciale et chaque nouveau motif" },
+            { cle: 'bureau', ic: 'shield-check', titre: 'Membre du bureau nommé', desc: "Annonce chaque nomination au bureau" }
+        ];
+
+        function openModalNotifications() {
+            api('getReglagesNotifications').then(r => {
+                document.getElementById('liste-notifs-reglages').innerHTML = TYPES_NOTIF.map(t => `
+                <label class="flex items-center gap-3 p-3.5 rounded-2xl cursor-pointer" style="background:var(--field);border:1px solid var(--field-border)">
+                    <div class="icon-tile it-viol" style="width:34px;height:34px;border-radius:11px"><i data-lucide="${t.ic}" class="w-3.5 h-3.5"></i></div>
+                    <div class="flex-1 min-w-0"><p class="text-[11.5px] font-extrabold">${t.titre}</p><p class="text-[9.5px] font-bold leading-snug" style="color:var(--muted)">${t.desc}</p></div>
+                    <input type="checkbox" id="notif-${t.cle}" ${r[t.cle] !== false ? 'checked' : ''} class="w-4 h-4 cursor-pointer" style="accent-color:var(--primary)">
+                </label>`).join('');
+                lucide.createIcons();
+                toggleModal('modal-notifs', true);
+            }).catch(e => showToast(String(e), 'error'));
+        }
+
+        function enregistrerNotifs() {
+            const reglages = {};
+            TYPES_NOTIF.forEach(t => { reglages[t.cle] = document.getElementById('notif-' + t.cle).checked; });
+            api('enregistrerReglagesNotifications', reglages).then(r => {
+                showToast(r.msg);
+                toggleModal('modal-notifs', false);
+            }).catch(e => showToast(String(e), 'error'));
+        }
+
 
         function loadMensualiteConfig() {
             api('getMensualiteConfig').then(cfg => {

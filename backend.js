@@ -24,6 +24,7 @@ const SHEET_INFOS = "ASSOC_INFOS";
 const SHEET_TYPES_MENSUELS = "MENSUEL_TYPES";
 const SHEET_TYPES_EXCEP = "EXCEP_TYPES";
 const SHEET_ACCES_MEMBRES = "MEMBRES_ACCES";
+const SHEET_NOTIF_REGLAGES = "NOTIF_REGLAGES";
 
 // Feuilles du classeur d'UNE association (structure standard)
 const TABLES_STANDARD = [
@@ -918,13 +919,16 @@ function enregistrerMensuel(d) { SS.getSheetByName(SHEET_MENSUEL).appendRow([d.i
 
 function enregistrerExcep(d) {
   SS.getSheetByName(SHEET_EXCEP).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.motif.toUpperCase(), d.montant, new Date().toLocaleDateString('fr-FR')]);
-  // Notification push aux MEMBRES (nom de la cotisation + montant).
+  // Notification push aux MEMBRES (nom de la cotisation + montant),
+  // SI le gérant n'a pas coupé ce type dans les Paramètres.
   // Attendue : le résultat est compté dans la réponse (diagnostic).
   const nomAssoc = compteActif ? (getAssocInfos().nom || "L'association") : '';
-  const envoi = push.notifierTous(compteActif ? compteActif.id : null,
-    'Nouvelle cotisation exceptionnelle',
-    `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
-    .catch(e => { log.error('Échec d\'envoi des notifications (cotisation exceptionnelle)', { error: { message: e && e.message } }); return { envoyees: 0 }; });
+  const envoi = notifActive('excep')
+    ? push.notifierTous(compteActif ? compteActif.id : null,
+      'Nouvelle cotisation exceptionnelle',
+      `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
+      .catch(e => { log.error('Échec d\'envoi des notifications (cotisation exceptionnelle)', { error: { message: e && e.message } }); return { envoyees: 0 }; })
+    : Promise.resolve({ envoyees: 0 });
   return envoi.then(r => { log.info("Cotisation exceptionnelle encaissée", { evenement: "encaissement_excep", compteId: compteActif ? compteActif.id : null, membreId: d.idMembre, motif: String(d.motif || "").toUpperCase(), montant: Number(d.montant) || 0, membresNotifies: r.envoyees || 0 }); return {status:"success", msg:"Cotisation enregistrée !", membresNotifies: r.envoyees || 0}; });
 }
 
@@ -934,12 +938,15 @@ function enregistrerExcep(d) {
 function enregistrerDepense(d) {
   const date = d.date ? formatDateFR(d.date) : new Date().toLocaleDateString('fr-FR');
   SS.getSheetByName(SHEET_DEPENSES).appendRow([d.motif.toUpperCase(), "", d.montant, date]);
-  // Notification push aux MEMBRES (objet + somme de la sortie).
+  // Notification push aux MEMBRES (objet + somme de la sortie),
+  // SI le gérant n'a pas coupé ce type dans les Paramètres.
   const nomAssoc = compteActif ? (getAssocInfos().nom || "L'association") : '';
-  const envoi = push.notifierTous(compteActif ? compteActif.id : null,
-    "Nouvelle sortie d'argent",
-    `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
-    .catch(e => { log.error('Échec d\'envoi des notifications (sortie d\'argent)', { error: { message: e && e.message } }); return { envoyees: 0 }; });
+  const envoi = notifActive('sortie')
+    ? push.notifierTous(compteActif ? compteActif.id : null,
+      "Nouvelle sortie d'argent",
+      `${nomAssoc} : ${String(d.motif).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA`)
+      .catch(e => { log.error('Échec d\'envoi des notifications (sortie d\'argent)', { error: { message: e && e.message } }); return { envoyees: 0 }; })
+    : Promise.resolve({ envoyees: 0 });
   return envoi.then(r => { log.info("Sortie d'argent validée", { evenement: "sortie", compteId: compteActif ? compteActif.id : null, objet: String(d.motif || "").toUpperCase(), montant: Number(d.montant) || 0, membresNotifies: r.envoyees || 0 }); return {status:"success", msg:"Sortie validée !", membresNotifies: r.envoyees || 0}; });
 }
 
@@ -989,10 +996,12 @@ function enregistrerTypeExcep(d) {
   // (nom de la cotisation + montant à participer).
   s.appendRow(row);
   const nomAssoc = compteActif ? (getAssocInfos().nom || "L'association") : '';
-  const envoi = push.notifierTous(compteActif ? compteActif.id : null,
-    'Nouvelle cotisation exceptionnelle',
-    `${nomAssoc} : ${String(d.label).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA. Pensez à votre participation.`)
-    .catch(e => { log.error('Échec d\'envoi des notifications (nouveau motif)', { error: { message: e && e.message } }); return { envoyees: 0 }; });
+  const envoi = notifActive('excep')
+    ? push.notifierTous(compteActif ? compteActif.id : null,
+      'Nouvelle cotisation exceptionnelle',
+      `${nomAssoc} : ${String(d.label).toUpperCase()} — ${Number(d.montant).toLocaleString('fr-FR')} FCFA. Pensez à votre participation.`)
+      .catch(e => { log.error('Échec d\'envoi des notifications (nouveau motif)', { error: { message: e && e.message } }); return { envoyees: 0 }; })
+    : Promise.resolve({ envoyees: 0 });
   return envoi.then(r => ({ status: "success", msg: "Motif sauvegardé !", membresNotifies: r.envoyees || 0 }));
 }
 
@@ -1075,7 +1084,53 @@ function enregistrerPoste(d) {
 function supprimerPoste(id) { SS.getSheetByName(SHEET_POSTES).deleteRow(id); return { status: "success", msg: "Poste supprimé." }; }
 
 function nommerMembre(d) { SS.getSheetByName(SHEET_BUREAU).appendRow([d.idMembre, d.nomMembre.toUpperCase(), d.poste, new Date().toLocaleDateString('fr-FR')]);
+  // NOUVEAU : notification push aux MEMBRES (nom + poste), SI le
+  // gérant a laissé ce type actif dans les Paramètres.
+  if (notifActive('bureau')) {
+    const nomAssoc = compteActif ? (getAssocInfos().nom || "L'association") : '';
+    push.notifierTous(compteActif ? compteActif.id : null,
+      'Nouveau membre du bureau',
+      `${nomAssoc} : ${String(d.nomMembre).toUpperCase()} est désormais ${String(d.poste).toUpperCase()}`)
+      .catch(e => { log.error('Échec d\'envoi des notifications (nomination)', { error: { message: e && e.message } }); });
+  }
+  log.info('Nomination enregistrée', { evenement: "nomination", compteId: compteActif ? compteActif.id : null, membreId: d.idMembre, poste: String(d.poste || '') });
   return { status: "success", msg: "Nomination réussie !" }; }
+
+/* ============ Réglages des notifications (Paramètres gérant) ============ */
+// Chaque type d'annonce aux membres peut être activé ou coupé
+// INDIVIDUELLEMENT par le gérant :
+//   - sortie : nouvelle sortie d'argent (dépense)
+//   - excep  : nouvelle cotisation exceptionnelle (encaissement
+//              ET création d'un nouveau motif)
+//   - bureau : nouveau membre nommé au bureau
+// Défaut : TOUT ACTIF (comportement historique). Le réglage ne fait
+// que couper ce que le gérant choisit — rien n'est perdu.
+const EVENEMENTS_NOTIF = ['sortie', 'excep', 'bureau'];
+
+function getReglagesNotifications() {
+  const defauts = { sortie: true, excep: true, bureau: true };
+  const s = SS ? SS.getSheetByName(SHEET_NOTIF_REGLAGES) : null;
+  if (!s || s.getLastRow() < 1) return defauts;
+  // Une ligne par événement : [clé, 'OUI'|'NON'] (sans en-tête)
+  s.getDataRange().getValues().forEach(r => {
+    const cle = r[0] ? String(r[0]).trim().toLowerCase() : '';
+    if (cle in defauts) defauts[cle] = String(r[1] || '').toUpperCase() !== 'NON';
+  });
+  return defauts;
+}
+
+function enregistrerReglagesNotifications(r) {
+  const s = SS.getSheetByName(SHEET_NOTIF_REGLAGES) || SS.insertSheet(SHEET_NOTIF_REGLAGES);
+  EVENEMENTS_NOTIF.forEach((cle, i) => {
+    s.getRange(i + 1, 1, 1, 2).setValues([[cle, (r && r[cle] === false) ? 'NON' : 'OUI']]);
+  });
+  const etat = EVENEMENTS_NOTIF.map(cle => cle + '=' + ((r && r[cle] === false) ? 'NON' : 'OUI')).join(', ');
+  log.info('Réglages des notifications mis à jour', { evenement: "reglages_notifications", compteId: compteActif ? compteActif.id : null, reglages: etat });
+  return { status: "success", msg: "Préférences de notifications enregistrées !", reglages: getReglagesNotifications() };
+}
+
+// Une notification n'est envoyée que si le gérant a laissé le type actif
+function notifActive(cle) { return getReglagesNotifications()[cle] !== false; }
 
 // Suppression LOGIQUE : le motif est retiré des listes (archive)
 // mais conservé en base — aucune cotisation, aucun total ni
@@ -1733,5 +1788,6 @@ module.exports = {
   clePubliquePush, abonnerPush, testPushPerso, compterAbonnementsMembres,
   getVueGlobale, reinitialiserMdpAssociation, supprimerAssociation,
   connexionSuperAdmin, majMotDePasseSuperAdmin, verifierSessionSuperAdmin, creerAssociationParSuperAdmin,
-  getCreancesMembre, getPointDetaille
+  getCreancesMembre, getPointDetaille,
+  getReglagesNotifications, enregistrerReglagesNotifications
 };
