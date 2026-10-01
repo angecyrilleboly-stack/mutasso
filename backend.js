@@ -867,7 +867,15 @@ function getExceps(m) { const s = SS.getSheetByName(SHEET_EXCEP); if (s.getLastR
   if (accesMembre) d = d.filter(r => r[0].toString() === accesMembre.id);
   if (m) d = d.filter(r => r[2].toString().toUpperCase() === m.toUpperCase());
   const contacts = contactsParId();
-  return d.map(r => ({ nom: r[1], motif: r[2], montant: r[3], date: r[4] instanceof Date ? r[4].toLocaleDateString('fr-FR') : r[4], contact: contacts[String(r[0])] || '' }));
+  // Date de création du MOTIF jointe à chaque cotisation. La table
+  // complète des motifs (getTypesExcepTous) est utilisée SANS filtre
+  // d'archivage : après une suppression logique, l'historique des
+  // cotisations reste affiché avec sa date de création.
+  const datesMotifs = {};
+  getTypesExcepTous().forEach(t => { if (t.dateCreation) datesMotifs[t.label] = t.dateCreation; });
+  return d.map(r => { const motif = r[2] ? r[2].toString().toUpperCase() : '';
+    return { nom: r[1], motif: r[2], montant: r[3], date: r[4] instanceof Date ? r[4].toLocaleDateString('fr-FR') : r[4], contact: contacts[String(r[0])] || '', motifCreeLe: datesMotifs[motif] || '' };
+  });
 }
 
 function getDepenses() { const s = SS.getSheetByName(SHEET_DEPENSES); if (s.getLastRow() <= 1) return [];
