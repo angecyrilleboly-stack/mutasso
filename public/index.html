@@ -2073,7 +2073,13 @@
                 margin: [0.5, 0.5, 0.6, 0.5],
                 filename: 'Rapport_MUTASSO_' + auj.toLocaleDateString('fr-FR').replace(/\//g, '-') + '.pdf',
                 html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+                // JAMAIS de tableau coupé en fin de page : chaque
+                // .rapport-section (titre + tableau) et le bloc signature
+                // qui chevauche une limite de page — et tient sur une
+                // page — sont poussés ENTIERS sur la page suivante
+                // (html2pdf insère un saut avant ces blocs).
+                pagebreak: { mode: ['css', 'legacy'], avoid: '.rapport-section' }
             };
             html2pdf().set(opt).from(zone).save().then(
                 () => { conteneur.classList.add('hidden'); zone.innerHTML = ''; showToast('Rapport PDF généré !'); },
@@ -2100,12 +2106,15 @@
                     return ligne(cells.map(c => esc(String(c))), gras, monetaire);
                 }).join('');
                 const tete = '<tr>' + entetes.map((h, i) => '<th style="' + th + (monetaire && i === entetes.length - 1 ? ' text-align:right;' : '') + '">' + esc(h) + '</th>').join('') + '</tr>';
-                return `
+                // Bloc .rapport-section = titre + tableau inséparables :
+                // html2pdf (pagebreak.avoid) pousse le bloc ENTIER sur la
+                // page suivante s'il chevauche une limite de page.
+                return `<div class="rapport-section">
                 <p style="font-weight:bold; font-size:12px; margin:26px 0 8px;">${esc(s.titre)}</p>
                 <table style="width:100%; border-collapse:collapse;">
                     <thead>${tete}</thead>
                     <tbody>${corps}</tbody>
-                </table>`;
+                </table></div>`;
             }).join('');
 
             const element = document.createElement('div');
@@ -2133,7 +2142,7 @@
 
                     ${sections}
 
-                    <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:flex-end;">
+                    <div class="rapport-section" style="margin-top:30px; display:flex; justify-content:space-between; align-items:flex-end;">
                         <p style="margin:0; font-size:9px; color:#555;">Document généré par MUTASSO — Effectif : ${r.effectif} membres.</p>
                         <div style="text-align:center; width:250px;">
                             <p style="margin:0; font-size:11px; font-style:italic;">Fait le ${esc(r.genereLe)}</p>
