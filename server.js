@@ -39,6 +39,31 @@ app.use((req, res, next) => {
   next();
 });
 
+// ---- Démarrage (mémoïsé) : base de données + clés VAPID ----
+// En local/Render : exécuté une fois au démarrage, avant l'écoute.
+// Sur Vercel (serverless) : exécuté à la PREMIÈRE requête de chaque
+// instance — chaque requête attend la fin de l'initialisation.
+let promesseInit = null;
+function initialiser() {
+  if (!promesseInit) {
+    promesseInit = (async () => {
+      const etat = await store.initStore();
+      log.info('Démarrage MUTASSO PRO v6.2', { mode: etat.mode });
+      // Prépare les clés VAPID (générées/persistées au 1er démarrage)
+      const push = require('./push');
+      await push.initialiser().catch(() => {});
+      return etat;
+    })();
+  }
+  return promesseInit;
+}
+
+app.use((req, res, next) => {
+  initialiser().then(() => next()).catch(e => {
+    repondreErreur(req, res, erreurs.interne(e, 'Service en cours d\'initialisation, réessayez dans un instant.'));
+  });
+});
+
 // ---- Observabilité : requestId + contexte + journal de requête ----
 app.use((req, res, next) => {
   req.id = (req.get('X-Request-Id') || 'req_' + crypto.randomUUID()).slice(0, 64);
@@ -175,20 +200,21 @@ app.use((err, req, res, next) => {
   repondreErreur(req, res, err);
 });
 
-// Départ : connexion à la base si configurée, puis écoute
+// Export pour Vercel (Node.js backend : le module EST l'application)
+module.exports = app;
 
-(async () => {
-  try {
-    const etat = await store.initStore();
-    log.info('Démarrage MUTASSO PRO v6.2', { mode: etat.mode });
-    // Prépare les clés VAPID (générées/persistées au 1er démarrage)
-    const push = require('./push');
-    await push.initialiser().catch(() => {});
-    app.listen(config.PORT, '0.0.0.0', () => {
-      log.info('Serveur à l\'écoute', { port: config.PORT, url: 'http://localhost:' + config.PORT });
-    });
-  } catch (e) {
-    log.error('Impossible de démarrer (base de données ?)', { error: { message: e.message } });
-    process.exit(1);
-  }
-})();
+// Départ local/Render : connexion à la base puis écoute.
+// Sur Vercel, PAS d'écoute — la plateforme gère le serveur HTTP.
+if (!process.env.VERCEL) {
+  (async () => {
+    try {
+      await initialiser();
+      app.listen(config.PORT, '0.0.0.0', () => {
+        log.info('Serveur à l\'écoute', { port: config.PORT, url: 'http://localhost:' + config.PORT });
+      });
+    } catch (e) {
+      log.error('Impossible de démarrer (base de données ?)', { error: { message: e.message } });
+      process.exit(1);
+    }
+  })();
+}

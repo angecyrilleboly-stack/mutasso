@@ -66,7 +66,18 @@ function marquerFlushGlobal() {
 /* ============ Classeur d'une association ============ */
 // Cache mémoire : compteId -> { tables, sale, fichier }
 const cacheClasseurs = new Map();
+// Classeurs modifiés en attente de persistance (drainé par
+// flushPersistence). Une FILE explicite plutôt qu'une lecture du
+// cache : sur Vercel le cache est remplacé à chaque requête (lecture
+// fraîche), un objet remplacé ne doit pas perdre ses écritures.
+const aPersister = new Set();
 let flushNecessaire = false;
+
+// Sur Vercel (serverless), PLUSIEURS instances vivent en parallèle :
+// un cache mémoire vieux de quelques minutes écraserait les écritures
+// des autres instances. On relit donc le classeur depuis PostgreSQL à
+// CHAQUE requête (données petites — JSONB — coût négligeable).
+const MODE_SERVERLESS = !!process.env.VERCEL;
 
 class Range {
   constructor(classeur, sheet, row, col, numRows, numCols) {
@@ -130,7 +141,10 @@ class Sheet {
 // - mode fichiers : data/comptes/<id>.json
 // - mode postgres : hydrate depuis la table classeurs
 async function ouvrirClasseur(compteId) {
-  const enCache = cacheClasseurs.get(compteId);
+  // Serverless (Vercel) : les instances vivent en parallèle — un
+  // cache issu d'une requête précédente serait obsolète. On relit
+  // systématiquement la version fraîche depuis PostgreSQL.
+  const enCache = MODE_SERVERLESS ? null : cacheClasseurs.get(compteId);
   if (enCache) return enCache.SS;
 
   const classeur = {
@@ -144,7 +158,14 @@ async function ouvrirClasseur(compteId) {
       return this.tables;
     },
     enregistrer() {
-      if (config.MODE_PG) { this.sale = true; flushNecessaire = true; }
+      if (config.MODE_PG) {
+        this.sale = true;
+        // File explicite : l'objet peut avoir été remplacé dans le
+        // cache par une requête plus récente (serverless) — sa
+        // persistance ne doit pas dépendre du cache.
+        aPersister.add(this);
+        flushNecessaire = true;
+      }
       else {
         fs.mkdirSync(path.dirname(this.fichier), { recursive: true });
         fs.writeFileSync(this.fichier, JSON.stringify(this.tables, null, 2));
@@ -174,10 +195,14 @@ async function ouvrirClasseur(compteId) {
 }
 
 // Persiste les classeurs modifiés (appelé après chaque requête).
+// Draine la file des classeurs modifiés (et non le cache : sur
+// Vercel le cache est remplacé à chaque requête).
 async function flushPersistence() {
   if (!config.MODE_PG || !flushNecessaire) return;
   flushNecessaire = false;
-  for (const { classeur } of cacheClasseurs.values()) {
+  const lot = [...aPersister];
+  aPersister.clear();
+  for (const classeur of lot) {
     if (classeur.sale) {
       classeur.sale = false;
       await store.pgEcrireClasseur(classeur.compteId, classeur.tables);
