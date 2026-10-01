@@ -5,3 +5,6 @@ uploads/
 ANCIENNE-BASE*
 public/index-v1-original.html
 *.log
+
+.vercel
+.env*
