@@ -318,8 +318,14 @@
                             <div><label class="label-style">Contact (téléphone)</label><input type="text" name="contact" class="input-field" placeholder="Ex: 07 00 00 00 00"></div>
                             <div><label class="label-style">Email (identifiant)</label><input type="email" name="email" required class="input-field" placeholder="association@email.com" autocomplete="username"></div>
                             <div class="grid grid-cols-2 gap-3">
-                                <div><label class="label-style">Mot de passe</label><input type="password" name="mdp" required minlength="6" class="input-field" placeholder="6 car. min." autocomplete="new-password"></div>
-                                <div><label class="label-style">Confirmer</label><input type="password" name="mdp2" required class="input-field" placeholder="Répéter" autocomplete="new-password"></div>
+                                <div><label class="label-style">Mot de passe</label>
+                                    <div class="relative"><input type="password" name="mdp" id="ins-mdp" required minlength="6" class="input-field !pr-11" placeholder="6 car. min." autocomplete="new-password">
+                                    <button type="button" onclick="basculerMdp(this,'ins-mdp')" class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer" style="color:var(--muted)" title="Afficher le mot de passe"><i data-lucide="eye" class="w-4 h-4"></i></button></div>
+                                </div>
+                                <div><label class="label-style">Confirmer</label>
+                                    <div class="relative"><input type="password" name="mdp2" id="ins-mdp2" required class="input-field !pr-11" placeholder="Répéter" autocomplete="new-password">
+                                    <button type="button" onclick="basculerMdp(this,'ins-mdp2')" class="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer" style="color:var(--muted)" title="Afficher le mot de passe"><i data-lucide="eye" class="w-4 h-4"></i></button></div>
+                                </div>
                             </div>
                             <p id="signup-err" class="text-[11px] font-bold hidden" style="color:var(--out)"></p>
                             <button type="submit" class="btn-primary w-full justify-center !py-4"><i data-lucide="user-plus" class="w-4 h-4"></i>Créer le compte</button>
@@ -1366,6 +1372,18 @@
             document.getElementById('tab-signup').classList.toggle('active', su);
             document.getElementById('login-err').classList.add('hidden');
             document.getElementById('signup-err').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        // Icône œil : afficher/masquer un champ mot de passe (au choix
+        // de l'utilisateur). Le <i> est recréé à chaque bascule car
+        // lucide.createIcons() remplace l'élément d'origine par un SVG.
+        function basculerMdp(btn, cible) {
+            const inp = document.getElementById(cible);
+            const montrer = inp.type === 'password';
+            inp.type = montrer ? 'text' : 'password';
+            btn.innerHTML = '<i data-lucide="' + (montrer ? 'eye-off' : 'eye') + '" class="w-4 h-4"></i>';
+            btn.title = montrer ? 'Masquer le mot de passe' : 'Afficher le mot de passe';
             lucide.createIcons();
         }
 
