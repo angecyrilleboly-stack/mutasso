@@ -212,6 +212,7 @@
         .custom-checkbox { appearance: none; background-color: var(--field); margin: 0; border: 2px solid var(--field-border); border-radius: 7px; width: 19px; height: 19px; display: grid; place-content: center; cursor: pointer; transition: .2s; flex-shrink: 0; }
         .custom-checkbox::before { content: ""; width: 11px; height: 11px; transform: scale(0); transition: 120ms transform ease-in-out; box-shadow: inset 1em 1em #fff; transform-origin: center; clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%); }
         .custom-checkbox:checked { background-color: #0d9488; border-color: #0d9488; }
+        .mention-item.mention-active, .mention-item:hover { background: var(--field); }
         .custom-checkbox:checked::before { transform: scale(1); }
 
         /* ============ AUTHENTIFICATION ============ */
@@ -1094,7 +1095,10 @@
                     <input type="text" name="objet" required class="input-field rounded-xl" placeholder="Ex: 1. Cotisations — 2. Sortie à Bouaké — 3. Divers">
                 </div>
                 <div>
-                    <label class="label-style">Membres présents (sélectionnez tous les participants)</label>
+                    <div class="flex items-center justify-between">
+                        <label class="label-style">Membres présents (sélectionnez tous les participants)</label>
+                        <button type="button" id="btn-tout-cocher" onclick="cocherTousPresents(this)" class="chip chip-neutral cursor-pointer px-3 py-1.5 text-[9.5px]">Tout cocher</button>
+                    </div>
                     <div id="reunion-membres-list" class="p-4 rounded-2xl max-h-40 overflow-y-auto space-y-1" style="background:var(--field);border:1px solid var(--field-border)">
                         <p class="text-xs italic font-bold" style="color:var(--muted)">Chargement de la liste des membres…</p>
                     </div>
@@ -1103,8 +1107,11 @@
                 </div>
                 <div>
                     <label class="label-style">Notes de la réunion (grandes idées)</label>
-                    <textarea id="reunion-notes" class="input-field h-40 resize-none" placeholder="Ex: Décision de refaire la peinture, Budget 500k validé, Présence de M. le Maire…"></textarea>
-                    <p class="text-[9.5px] mt-1.5 italic font-semibold" style="color:var(--muted)">L'IA transformera ces notes en un PV officiel et générera le PDF.</p>
+                    <div class="relative">
+                        <textarea id="reunion-notes" class="input-field h-40 resize-none" placeholder="Ex: Décision de refaire la peinture, Budget 500k validé, @Président a insisté sur…"></textarea>
+                        <div id="mention-list" class="hidden absolute left-2 right-2 top-full mt-1 z-10 rounded-xl overflow-y-auto shadow-lg max-h-44" style="background:var(--card);border:1px solid var(--field-border)"></div>
+                        <p class="text-[9.5px] mt-1.5 italic font-semibold" style="color:var(--muted)">Tapez <b>@</b> pour mentionner un membre présent ou un invité · L'IA transformera ces notes en un PV officiel.</p>
+                    </div>
                 </div>
                 <div class="flex gap-3 pt-2">
                     <button type="submit" class="btn-primary flex-1 justify-center">Valider le PV</button>
@@ -2497,8 +2504,18 @@
             if (!adminSeulement()) return;
             document.getElementById('form-reunion').reset();
             if (document.getElementById('reunion-id')) document.getElementById('reunion-id').value = "";
+            fermerMentions();
+            const btnTC = document.getElementById('btn-tout-cocher');
+            if (btnTC) btnTC.textContent = 'Tout cocher';
             toggleModal('modal-reunion', true);
-            api('getMembres').then(membres => {
+            chargerListeReunionMembres();
+        }
+
+        // Liste des membres cochables + cache du bureau (postes) pour
+        // les mentions @ et la distinction bureau / membres / invités.
+        function chargerListeReunionMembres() {
+            return Promise.all([api('getMembres'), api('getBureau').catch(() => [])]).then(([membres, bureau]) => {
+                window.reunionBureau = bureau || [];
                 if (membres.length === 0) {
                     document.getElementById('reunion-membres-list').innerHTML = '<p class="text-xs italic font-bold" style="color:var(--muted)">Aucun membre enregistré.</p>';
                     return;
@@ -2510,6 +2527,95 @@
                     </label>`).join('');
             }).catch(console.error);
         }
+
+        /* ============ RÉUNION : TOUT COCHER + MENTIONS @ ============ */
+        // « Tout cocher » : coche TOUS les membres, il ne reste qu'à
+        // décocher les absents. Un second clic décoche tout.
+        function cocherTousPresents(btn) {
+            const cbs = Array.from(document.querySelectorAll('input[name="membres_presents"]'));
+            const toutCocher = !cbs.every(cb => cb.checked);
+            cbs.forEach(cb => { cb.checked = toutCocher; });
+            btn.textContent = toutCocher ? 'Tout décocher' : 'Tout cocher';
+        }
+
+        // Auto-complétion des mentions : membres COCHÉS présents
+        // (avec leur poste au bureau) + invités saisis, filtrés pendant
+        // la frappe après un « @ ».
+        let mentionIdx = 0, mentionItems = [], mentionPlage = null;
+        const sansAccent = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+        function candidatsMention() {
+            const coches = Array.from(document.querySelectorAll('input[name="membres_presents"]:checked')).map(cb => cb.value);
+            const posteDe = nom => { const b = (window.reunionBureau || []).find(x => String(x.nom).toUpperCase() === String(nom).toUpperCase()); return b ? b.poste : ''; };
+            const items = coches.map(n => ({ nom: n, cat: posteDe(n) ? 'Bureau — ' + posteDe(n) : 'Membre' }));
+            const champInvites = document.querySelector('#form-reunion [name="invites"]');
+            (champInvites ? champInvites.value : '').split(/[,;]/).map(s => s.trim()).filter(Boolean)
+                .forEach(n => items.push({ nom: n, cat: 'Invité(e)' }));
+            return items;
+        }
+
+        function fermerMentions() {
+            mentionPlage = null; mentionItems = []; mentionIdx = 0;
+            const l = document.getElementById('mention-list');
+            if (l) { l.classList.add('hidden'); l.innerHTML = ''; }
+        }
+
+        function afficherMentions(plage) {
+            const filtres = candidatsMention().filter(it => sansAccent(it.nom).includes(sansAccent(plage.query.trim())));
+            if (!filtres.length) { fermerMentions(); return; }
+            mentionPlage = plage; mentionItems = filtres; mentionIdx = 0;
+            const l = document.getElementById('mention-list');
+            l.innerHTML = filtres.map((it, i) => `
+                <div class="mention-item flex items-center gap-3 px-3.5 py-2.5 cursor-pointer ${i === 0 ? 'mention-active' : ''}" data-nom="${esc(it.nom)}">
+                    <i data-lucide="at-sign" class="w-3.5 h-3.5 shrink-0" style="color:var(--primary)"></i>
+                    <div class="flex-1 min-w-0"><p class="text-[11px] font-extrabold uppercase truncate">${esc(it.nom)}</p><p class="text-[8.5px] font-bold" style="color:var(--muted)">${esc(it.cat)}</p></div>
+                </div>`).join('');
+            l.classList.remove('hidden');
+            lucide.createIcons();
+            Array.from(l.querySelectorAll('.mention-item')).forEach(el => {
+                el.addEventListener('mousedown', ev => { ev.preventDefault(); insererMention(el.getAttribute('data-nom')); });
+            });
+        }
+
+        function detecterMention() {
+            const ta = document.getElementById('reunion-notes');
+            const pos = ta.selectionStart;
+            const m = ta.value.slice(0, pos).match(/(^|[\s(])@([^\s@]*)$/);
+            if (!m) { fermerMentions(); return; }
+            afficherMentions({ debut: pos - m[2].length - 1, fin: pos, query: m[2] });
+        }
+
+        function insererMention(nom) {
+            const ta = document.getElementById('reunion-notes');
+            if (!mentionPlage) { fermerMentions(); return; }
+            const v = ta.value;
+            ta.value = v.slice(0, mentionPlage.debut) + '@' + nom + ' ' + v.slice(mentionPlage.fin);
+            const pos = mentionPlage.debut + String(nom).length + 2;
+            ta.focus(); ta.setSelectionRange(pos, pos);
+            fermerMentions();
+        }
+
+        (function initMentions() {
+            const ta = document.getElementById('reunion-notes');
+            if (!ta) return;
+            ta.addEventListener('input', detecterMention);
+            ta.addEventListener('click', detecterMention);
+            ta.addEventListener('blur', () => setTimeout(fermerMentions, 120));
+            ta.addEventListener('keydown', e => {
+                const l = document.getElementById('mention-list');
+                if (!l || l.classList.contains('hidden')) return;
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    mentionIdx = (mentionIdx + (e.key === 'ArrowDown' ? 1 : mentionItems.length - 1)) % mentionItems.length;
+                    const items = Array.from(l.querySelectorAll('.mention-item'));
+                    items.forEach((el, i) => el.classList.toggle('mention-active', i === mentionIdx));
+                    if (items[mentionIdx]) items[mentionIdx].scrollIntoView({ block: 'nearest' });
+                } else if (e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault();
+                    if (mentionItems[mentionIdx]) insererMention(mentionItems[mentionIdx].nom);
+                } else if (e.key === 'Escape') { fermerMentions(); }
+            });
+        })();
 
         /* ============ PARAMÈTRES ============ */
         function openModalAssoc() {
@@ -2641,21 +2747,58 @@
             const dLongueMaj = dLongue.charAt(0).toUpperCase() + dLongue.slice(1);
             const dCourte = dObj.toLocaleDateString('fr-FR');
 
-            Promise.all([
-                api('genererPV_IA', notes, objet, date),
-                api('getBureau').catch(() => [])
-            ]).then(([texteIA, bureau]) => {
+            api('getBureau').catch(() => []).then(bureau => {
+                // Distinction des participants : MEMBRES DU BUREAU (avec
+                // leur poste) / MEMBRES SIMPLES / INVITÉS. Sert à la
+                // feuille de présence, à la ligne Participants et au
+                // prompt de l'IA (mentions @).
+                const posteDe = nom => { const b = bureau.find(x => String(x.nom).toUpperCase() === String(nom).toUpperCase()); return b ? b.poste : ""; };
+                const invList = invites.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+                const bureauP = presentsArray.filter(p => posteDe(p));
+                const simplesP = presentsArray.filter(p => !posteDe(p));
+                const contexteMentions = [
+                    bureauP.length ? 'BUREAU : ' + bureauP.map(p => p + ' (' + posteDe(p) + ')').join('; ') : '',
+                    simplesP.length ? 'MEMBRES SIMPLES : ' + simplesP.join('; ') : '',
+                    invList.length ? 'INVITÉS : ' + invList.join('; ') : ''
+                ].filter(Boolean).join(' | ');
+                const participantsMeta = [
+                    bureauP.length ? '<b>Membres du bureau :</b> ' + bureauP.map(p => esc(p) + ' (' + esc(posteDe(p)) + ')').join(', ') : '',
+                    simplesP.length ? '<b>Membres simples :</b> ' + simplesP.map(esc).join(', ') : '',
+                    invList.length ? '<b>Invités :</b> ' + invList.map(esc).join(', ') : ''
+                ].filter(Boolean).join(' · ') || 'Les membres présents, conformément à la liste de présence annexée.';
+                // Feuille de présence groupée : bureau, puis membres
+                // simples, puis invités — chacun avec sa fonction.
+                const ligneEmargement = (nom, fonction, i) => `<tr>
+                                    <td style="border:1px solid #141414; padding:12px 6px; text-align:center;">${i}</td>
+                                    <td style="border:1px solid #141414; padding:12px 10px; text-transform:uppercase;">${esc(nom)}</td>
+                                    <td style="border:1px solid #141414; padding:12px 10px;">${esc(fonction)}</td>
+                                    <td style="border:1px solid #141414;"></td>
+                                </tr>`;
+                const lignesPresence = [];
+                let num = 1;
+                bureauP.forEach(p => lignesPresence.push(ligneEmargement(p, posteDe(p), num++)));
+                simplesP.forEach(p => lignesPresence.push(ligneEmargement(p, 'Membre', num++)));
+                invList.forEach(g => lignesPresence.push(ligneEmargement(g, 'Invité', num++)));
+
+                return api('genererPV_IA', notes, objet, date, contexteMentions).then(texteIA => ({ texteIA, bureau, posteDe, invList, bureauP, simplesP, participantsMeta, lignesPresence }));
+            }).then(({ texteIA, bureau, posteDe, invList, bureauP, simplesP, participantsMeta, lignesPresence }) => {
                 if (String(texteIA).startsWith("Erreur")) {
                     showToast("L'IA est surchargée, attendez 1 min.", "error");
                     btn.disabled = false; btn.innerHTML = originalText; lucide.createIcons();
                     return;
                 }
 
+                // Les mentions « @Nom » qui ont survécu au récit de l'IA
+                // sont mises en évidence dans le PV.
+                let texteEnrichi = String(texteIA);
+                [...bureauP, ...simplesP, ...invList].sort((a, b) => b.length - a.length).forEach(nom => {
+                    texteEnrichi = texteEnrichi.split('@' + nom).join('<b>@' + esc(nom) + '</b>');
+                });
+
                 btn.innerHTML = `<i data-lucide="loader" class="w-3 h-3 animate-spin"></i> PDF en cours…`;
                 lucide.createIcons();
 
                 // Fonction de chaque présent (poste connu via le bureau)
-                const posteDe = nom => { const b = bureau.find(x => String(x.nom).toUpperCase() === String(nom).toUpperCase()); return b ? b.poste : ""; };
                 const presidence = bureau.find(b => /PRESID/i.test(b.poste)) || bureau[0];
                 const lignePresidence = presidence ? `${presidence.nom}, ${presidence.poste} de l'association` : "";
                 const contactAssoc = [window.assocData.tel, window.assocData.email].filter(Boolean).join(' • ');
@@ -2687,25 +2830,25 @@
                             </div>
                         </div>
 
-                        <table style="width:100%; border-collapse:collapse; margin:14px 0 4px;">
+                        <table class="pv-section" style="width:100%; border-collapse:collapse; margin:14px 0 4px;">
                             ${ligneMeta('Date', dLongueMaj)}
                             ${ligneMeta('Lieu', lieu || "Siège de l'association")}
                             ${ligneMeta('Heure', plageHeure)}
                             ${ligneMeta('Présidence', lignePresidence)}
-                            ${ligneMeta('Participants', 'Les membres présents, conformément à la liste de présence annexée.')}
+                            ${ligneMeta('Participants', participantsMeta)}
                         </table>
 
                         <!-- Ordre du jour saisi par le secrétaire -->
-                        <div style="margin:14px 0 4px;">
+                        <div class="pv-section" style="margin:14px 0 4px;">
                             <p style="margin:0 0 5px; font-size:10.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.5px;">Ordre du jour :</p>
                             <div style="font-size:11.5px; line-height:1.55; white-space:pre-wrap;">${esc(objet)}</div>
                         </div>
 
-                        <div style="white-space:pre-wrap; font-size:12px; line-height:1.6; text-align:justify; margin-top:12px;">${texteIA}
+                        <div style="white-space:pre-wrap; font-size:12px; line-height:1.6; text-align:justify; margin-top:12px;">${texteEnrichi}
 
 ${formuleLevee}</div>
 
-                        <div style="margin-top:30px; display:flex; justify-content:flex-end;">
+                        <div class="pv-section" style="margin-top:30px; display:flex; justify-content:flex-end;">
                             <div style="text-align:center; width:250px;">
                                 <p style="margin:0; font-size:11px; font-style:italic;">Fait à ${lieu || 'siège de l\'association'}, le ${dCourte}</p>
                                 <p style="margin:14px 0 34px; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:.5px;">Le Secrétariat Général</p>
@@ -2721,7 +2864,7 @@ ${formuleLevee}</div>
                             <p style="margin:6px 0 0; font-size:11px; font-style:italic;">Réunion du ${dLongueMaj} — ${esc(objet)}</p>
                         </div>
 
-                        <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+                        <table class="pv-section" style="width:100%; border-collapse:collapse; font-size:11.5px;">
                             <thead>
                                 <tr style="background:#efefef;">
                                     <th style="border:1px solid #141414; padding:8px 6px; width:38px; font-size:10px;">N°</th>
@@ -2731,22 +2874,11 @@ ${formuleLevee}</div>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${presentsArray.length ? presentsArray.map((p, i) => `<tr>
-                                    <td style="border:1px solid #141414; padding:12px 6px; text-align:center;">${i + 1}</td>
-                                    <td style="border:1px solid #141414; padding:12px 10px; text-transform:uppercase;">${esc(p)}</td>
-                                    <td style="border:1px solid #141414; padding:12px 10px;">${esc(posteDe(p))}</td>
-                                    <td style="border:1px solid #141414;"></td>
-                                </tr>`).join('') : `<tr><td colspan="4" style="border:1px solid #141414; padding:14px; text-align:center; font-style:italic;">Aucun membre coché</td></tr>`}
+                                ${lignesPresence.length ? lignesPresence.join('') : `<tr><td colspan="4" style="border:1px solid #141414; padding:14px; text-align:center; font-style:italic;">Aucun participant coché</td></tr>`}
                             </tbody>
                         </table>
 
-                        ${invites ? `
-                        <div style="margin-top:26px;">
-                            <p style="margin:0 0 8px; font-size:10.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.5px;">Personnes invitées / annexes :</p>
-                            <p style="margin:0; font-size:11.5px; background:#f6f6f6; border-left:3px solid #141414; padding:10px 14px;">${esc(invites)}</p>
-                        </div>` : ''}
-
-                        <div style="margin-top:40px; display:flex; justify-content:flex-end;">
+                        <div class="pv-section" style="margin-top:40px; display:flex; justify-content:flex-end;">
                             <div style="text-align:center; width:250px;">
                                 <p style="margin:0 0 34px; font-size:11px; font-weight:bold; text-transform:uppercase; letter-spacing:.5px;">Le Secrétariat Général</p>
                                 <div style="border-top:1px dashed #555; width:100%;"></div>
@@ -2758,7 +2890,12 @@ ${formuleLevee}</div>
                     margin: [0.5, 0.5, 0.6, 0.5],
                     filename: `CR_${objet.replace(/\s+/g, '_')}.pdf`,
                     html2canvas: { scale: 2 },
-                    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+                    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+                    // Même règle que le rapport de gestion : les blocs
+                    // .pv-section (table méta, ordre du jour, tableau de
+                    // présence, signatures) ne sont JAMAIS coupés en fin
+                    // de page — ils passent entiers sur la page suivante.
+                    pagebreak: { mode: ['css', 'legacy'], avoid: '.pv-section' }
                 };
 
                 html2pdf().set(opt).from(element).outputPdf('datauristring').then(pdfBase64 => {
@@ -2938,6 +3075,8 @@ ${formuleLevee}</div>
             const r = listReunions.find(x => x.id === id);
             if (!r) return;
             toggleModal('modal-reunion', true);
+            fermerMentions();
+            chargerListeReunionMembres();
             const f = document.getElementById('form-reunion');
             f.objet.value = r.objet;
             f.lieu.value = r.lieu || '';

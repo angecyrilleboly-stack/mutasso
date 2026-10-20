@@ -1174,16 +1174,23 @@ function autoriserDrive() {}
 // (GEMINI_API_KEY dans .env en local, ou dans Render)
 const GEMINI_API_KEY = config.GEMINI_API_KEY;
 
-async function genererPV_IA(notes, objet, date) {
+async function genererPV_IA(notes, objet, date, contexte) {
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY;
 
   let nomAssoc = "l'Association";
   try { nomAssoc = getAssocInfos().nom || "l'Association"; } catch(e) {}
 
+  // Catégories de personnes transmises par le formulaire (mentions @) :
+  // le PV doit DISTINGUER membres du bureau / membres simples / invités.
+  const contexteTxt = (contexte && String(contexte).trim())
+    ? `\n- Personnes présentes, par catégorie : ${String(contexte).trim()}
+  Les personnes désignées par « @Nom » dans les notes font référence à ces personnes-là. Dans le récit, cite chaque personne avec SA catégorie (ex. « le Président X », « le membre Y », « l'invité Z ») sans jamais lui inventer une autre fonction : ces catégories sont un fait de la réunion, pas un ajout.`
+    : '';
+
   const prompt = `Tu es le Secrétaire Général de l'association "${nomAssoc}". Tu rédiges le CORPS du compte rendu officiel de la réunion :
 - Ordre du jour (fixé par le secrétaire, à respecter TEL QUEL) : ${objet}
 - Date : ${date}
-- Notes brutes du secrétaire : ${notes}
+- Notes brutes du secrétaire : ${notes}${contexteTxt}
 
 RÈGLE ABSOLUE DE FIDÉLITÉ AU CONTENU : les notes sont ta SEULE source d'information. Tu reformules et tu formalises ce qu'elles contiennent, mais tu n'ajoutes RIEN : aucun fait, aucune décision, aucun montant, aucune date, aucun nom, aucun événement et aucune heure qui ne figurent pas explicitement dans les notes. Si une information manque, tu t'abstiens — jamais de remplissage plausible.
 
