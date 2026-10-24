@@ -190,7 +190,8 @@ const FNS_RESERVEES_ADMIN = new Set([
   'majIdentite', 'majMotDePasse', 'saveAssocInfos',
   'getReglagesNotifications', 'enregistrerReglagesNotifications',
   'creerLienInscription', 'listerLiensInscription', 'revoquerLienInscription',
-  'majDebutCotisations', 'getRappelReglages', 'enregistrerRappelReglages'
+  'majDebutCotisations', 'getRappelReglages', 'enregistrerRappelReglages',
+  'enregistrerEntreeEspece', 'enregistrerEntreeNature'
 ]);
 app.post('/api/:fn', async (req, res) => {
   const fn = backend[req.params.fn];

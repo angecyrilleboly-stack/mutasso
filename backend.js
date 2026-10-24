@@ -25,6 +25,8 @@ const SHEET_TYPES_MENSUELS = "MENSUEL_TYPES";
 const SHEET_TYPES_EXCEP = "EXCEP_TYPES";
 const SHEET_ACCES_MEMBRES = "MEMBRES_ACCES";
 const SHEET_NOTIF_REGLAGES = "NOTIF_REGLAGES";
+const SHEET_ENTREES_ESPECES = "ENTREES_ESPECES";
+const SHEET_ENTREES_NATURE = "ENTREES_NATURE";
 
 // Feuilles du classeur d'UNE association (structure standard)
 const TABLES_STANDARD = [
@@ -34,6 +36,8 @@ const TABLES_STANDARD = [
   { name: SHEET_MENSUEL, headers: ["ID_Membre", "Nom_Complet", "Mois", "Année", "Montant", "Date_Paiement", "Type_Cotis"] },
   { name: SHEET_EXCEP, headers: ["ID_Membre", "Nom_Complet", "Motif", "Montant", "Date_Paiement"] },
   { name: SHEET_DEPENSES, headers: ["Motif", "Bénéficiaire", "Montant", "Date"] },
+  { name: SHEET_ENTREES_ESPECES, headers: ["Objet", "Montant", "Date", "Initiale"] },
+  { name: SHEET_ENTREES_NATURE, headers: ["Donateur", "Description", "Date"] },
   { name: SHEET_REUNIONS, headers: ["ID", "Date", "Objet", "Presents_Bureau", "Invites", "Compte_Rendu", "Lieu", "Heure", "Heure_Fin"] },
   { name: SHEET_INFOS, headers: ["Nom", "Telephone", "Adresse", "Email", "Logo_URL"] },
   { name: SHEET_TYPES_MENSUELS, headers: ["Libellé Type", "Montant"] },
@@ -290,6 +294,7 @@ async function getVueGlobale() {
     const exc = tables[SHEET_EXCEP] || [];
     const dep = tables[SHEET_DEPENSES] || [];
     const somme = (t, col) => t.slice(1).reduce((a, r) => a + (Number(r[col]) || 0), 0);
+    const sommeEntrees = somme(tables[SHEET_ENTREES_ESPECES] || [], 1);
     associations.push({
       id: c.id, nom: c.nom, email: c.email, contact: c.contact || '',
       creeLe: c.creeLe || '',
@@ -297,7 +302,7 @@ async function getVueGlobale() {
       nbMens: nbLignes(mens), nbExc: nbLignes(exc), nbDep: nbLignes(dep),
       totalEntrees: somme(mens, 4) + somme(exc, 3),
       totalDepenses: somme(dep, 2),
-      caisse: somme(mens, 4) + somme(exc, 3) - somme(dep, 2)
+      caisse: somme(mens, 4) + somme(exc, 3) + sommeEntrees - somme(dep, 2)
     });
   }
   return {
@@ -868,7 +873,7 @@ function getMembres() {
 
 function getDashboardStats() {
   const sumCol = (n, c) => { const s = SS.getSheetByName(n); if (!s || s.getLastRow() <= 1) return 0; return s.getRange(2, c, s.getLastRow()-1, 1).getValues().reduce((acc, v) => acc + (Number(v[0]) || 0), 0); };
-  const tIn = sumCol(SHEET_MENSUEL, 5) + sumCol(SHEET_EXCEP, 4);
+  const tIn = sumCol(SHEET_MENSUEL, 5) + sumCol(SHEET_EXCEP, 4) + sumCol(SHEET_ENTREES_ESPECES, 2);
   const tOut = sumCol(SHEET_DEPENSES, 3);
   return { totalMembres: Math.max(0, SS.getSheetByName(SHEET_MEMBRES).getLastRow() - 1), caisse: tIn - tOut };
 }
@@ -983,6 +988,44 @@ function getExceps(m) { const s = SS.getSheetByName(SHEET_EXCEP); if (s.getLastR
 
 function getDepenses() { const s = SS.getSheetByName(SHEET_DEPENSES); if (s.getLastRow() <= 1) return [];
   return s.getDataRange().getValues().slice(1).reverse().map(r => ({ motif: r[0], beneficiaire: r[1], montant: r[2], date: r[3] instanceof Date ? r[3].toLocaleDateString('fr-FR') : r[3] }));
+}
+
+// ---- ENTRÉES D'ARGENT HORS COTISATIONS (dons, caisse initiale…)
+// Espèces : argent en caisse physique (initiale = solde d'avant
+// MUTASSO). Nature : dons en biens, sans valeur en FCFA.
+function feuilleEntrees(nom, entetes) {
+  let s = SS.getSheetByName(nom);
+  if (!s) { s = SS.insertSheet(nom); s.getRange(1, 1, 1, entetes.length).setValues([entetes]); }
+  return s;
+}
+
+async function enregistrerEntreeEspece(d) {
+  if (!d.montant || Number(d.montant) <= 0) return { status: "error", msg: "Montant invalide." };
+  const date = d.date ? formatDateFR(d.date) : new Date().toLocaleDateString('fr-FR');
+  feuilleEntrees(SHEET_ENTREES_ESPECES, ["Objet", "Montant", "Date", "Initiale"])
+    .appendRow([String(d.objet || "").toUpperCase(), Number(d.montant), date, d.initiale ? "OUI" : ""]);
+  log.info("Entrée espèce enregistrée", { evenement: "entree_espece", compteId: compteActif ? compteActif.id : null, initiale: !!d.initiale, montant: Number(d.montant) });
+  return { status: "success", msg: d.initiale ? "Caisse initiale enregistrée !" : "Entrée enregistrée !" };
+}
+
+async function enregistrerEntreeNature(d) {
+  if (!d.description || !String(d.description).trim()) return { status: "error", msg: "Décrivez le don (bien offert)." };
+  const date = d.date ? formatDateFR(d.date) : new Date().toLocaleDateString('fr-FR');
+  feuilleEntrees(SHEET_ENTREES_NATURE, ["Donateur", "Description", "Date"])
+    .appendRow([String(d.donateur || "").toUpperCase(), String(d.description).trim(), date]);
+  log.info("Entrée en nature enregistrée", { evenement: "entree_nature", compteId: compteActif ? compteActif.id : null });
+  return { status: "success", msg: "Don en nature enregistré !" };
+}
+
+function getEntrees() {
+  const especeRows = SS.getSheetByName(SHEET_ENTREES_ESPECES);
+  const natureRows = SS.getSheetByName(SHEET_ENTREES_NATURE);
+  const dfr = v => (v instanceof Date ? v.toLocaleDateString('fr-FR') : v);
+  const especes = especeRows && especeRows.getLastRow() > 1 ? especeRows.getDataRange().getValues().slice(1).reverse()
+    .filter(r => r[0] !== "").map(r => ({ objet: r[0], montant: r[1], date: dfr(r[2]), initiale: String(r[3] || "").toUpperCase() === "OUI" })) : [];
+  const nature = natureRows && natureRows.getLastRow() > 1 ? natureRows.getDataRange().getValues().slice(1).reverse()
+    .filter(r => r[0] !== "" || r[1] !== "").map(r => ({ donateur: r[0], description: r[1], date: dfr(r[2]) })) : [];
+  return { especes: especes, nature: nature, totalEspeces: especes.reduce((s, e) => s + (Number(e.montant) || 0), 0) };
 }
 
 function ajouterMembre(d) { SS.getSheetByName(SHEET_MEMBRES).appendRow(["M-"+Math.floor(Math.random()*9000+1000), d.nom.toUpperCase(), d.prenom, d.contact, d.ville, d.sexe]); return {status:"success", msg:"Membre ajouté !"};
@@ -2037,5 +2080,6 @@ module.exports = {
   getCreancesMembre, getPointDetaille,
   getReglagesNotifications, enregistrerReglagesNotifications,
   creerLienInscription, listerLiensInscription, revoquerLienInscription, verifierLienInscription,
-  majDebutCotisations, getRappelReglages, enregistrerRappelReglages, traiterRappels
+  majDebutCotisations, getRappelReglages, enregistrerRappelReglages, traiterRappels,
+  enregistrerEntreeEspece, enregistrerEntreeNature, getEntrees
 };

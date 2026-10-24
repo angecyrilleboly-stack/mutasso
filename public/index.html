@@ -442,12 +442,13 @@
         <nav class="flex-1 overflow-y-auto space-y-1.5">
             <div onclick="showPage('dashboard'); closeSidebarMobile()" id="m-dashboard" class="side-item active"><i data-lucide="layout-grid" class="w-[18px] h-[18px]"></i><span>Dashboard</span></div>
             <div onclick="showPage('membres'); closeSidebarMobile()" id="m-membres" class="side-item"><i data-lucide="users" class="w-[18px] h-[18px]"></i><span>Membres</span></div>
-            <div onclick="showPage('reunions'); closeSidebarMobile()" id="m-reunions" class="side-item"><i data-lucide="file-text" class="w-[18px] h-[18px]"></i><span>Réunions (PV)</span></div>
-            <div onclick="showPage('point'); closeSidebarMobile()" id="m-point" class="side-item"><i data-lucide="badge-check" class="w-[18px] h-[18px]"></i><span>Point Cotis.</span></div>
-            <div onclick="showPage('pointdet'); closeSidebarMobile()" id="m-pointdet" class="side-item"><i data-lucide="clipboard-list" class="w-[18px] h-[18px]"></i><span>Point détaillé</span></div>
             <div onclick="showPage('bureau'); closeSidebarMobile()" id="m-bureau" class="side-item"><i data-lucide="shield-check" class="w-[18px] h-[18px]"></i><span>Bureau</span></div>
             <div onclick="showPage('mensuel'); closeSidebarMobile()" id="m-mensuel" class="side-item"><i data-lucide="calendar-check" class="w-[18px] h-[18px]"></i><span>Mensualités</span></div>
             <div onclick="showPage('excep'); closeSidebarMobile()" id="m-excep" class="side-item"><i data-lucide="star" class="w-[18px] h-[18px]"></i><span>Exceptionnelles</span></div>
+            <div onclick="showPage('point'); closeSidebarMobile()" id="m-point" class="side-item"><i data-lucide="badge-check" class="w-[18px] h-[18px]"></i><span>Point Cotis.</span></div>
+            <div onclick="showPage('entrees'); closeSidebarMobile()" id="m-entrees" class="side-item"><i data-lucide="inbox" class="w-[18px] h-[18px]"></i><span>Entrées</span></div>
+            <div onclick="showPage('pointdet'); closeSidebarMobile()" id="m-pointdet" class="side-item"><i data-lucide="clipboard-list" class="w-[18px] h-[18px]"></i><span>Point détaillé</span></div>
+            <div onclick="showPage('reunions'); closeSidebarMobile()" id="m-reunions" class="side-item"><i data-lucide="file-text" class="w-[18px] h-[18px]"></i><span>Réunions (PV)</span></div>
             <div onclick="showPage('depenses'); closeSidebarMobile()" id="m-depenses" class="side-item"><i data-lucide="trending-down" class="w-[18px] h-[18px]"></i><span>Dépenses</span></div>
             <div onclick="showPage('rapports'); closeSidebarMobile()" id="m-rapports" class="side-item"><i data-lucide="file-bar-chart" class="w-[18px] h-[18px]"></i><span>Rapports</span></div>
             <div onclick="showPage('admin'); closeSidebarMobile()" id="m-admin" class="side-item" style="display:none"><i data-lucide="shield" class="w-[18px] h-[18px]"></i><span>Administration</span></div>
@@ -967,6 +968,51 @@
                 </div>
             </div>
 
+            <!-- ============ ENTRÉES (hors cotisations) ============ -->
+            <div id="p-entrees" class="page hidden">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-7">
+                    <div>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--in)"></span>Entrées</h3>
+                        <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Argent et biens reçus, hors cotisations (dons…)</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="exportCSV('table-entrees-especes', 'Entrees_especes.csv')" class="btn-ghost"><i data-lucide="download" class="w-4 h-4"></i>Export</button>
+                        <button onclick="openModalEntreeNature()" class="btn-ghost admin-only"><i data-lucide="gift" class="w-4 h-4"></i>Don en nature</button>
+                        <button onclick="openModalEntreeEspece(true)" class="btn-ghost admin-only"><i data-lucide="vault" class="w-4 h-4"></i>Caisse initiale</button>
+                        <button onclick="openModalEntreeEspece(false)" class="btn-primary admin-only"><i data-lucide="plus" class="w-4 h-4"></i>Entrée espèce</button>
+                    </div>
+                </div>
+                <div class="flex gap-2 mb-5">
+                    <button id="tab-entrees-especes" onclick="basculerEntrees('especes')" class="auth-tab active">Entrées en espèce</button>
+                    <button id="tab-entrees-nature" onclick="basculerEntrees('nature')" class="auth-tab">Entrées en nature</button>
+                </div>
+
+                <div id="bloc-entrees-especes">
+                    <div class="app-card p-4 mb-5 flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="icon-tile it-teal" style="width:38px;height:38px;border-radius:13px"><i data-lucide="vault" class="w-5 h-5"></i></div>
+                            <div><p class="text-[10px] font-black uppercase tracking-wide">Caisse physique</p><p class="text-[9px] font-bold" style="color:var(--muted)">Solde de départ d'avant MUTASSO inclus</p></div>
+                        </div>
+                        <p class="text-lg font-black" style="color:var(--in)"><span id="total-entrees-especes">0</span> FCFA</p>
+                    </div>
+                    <div class="app-card overflow-hidden">
+                        <table class="app-table">
+                            <thead><tr><th>Objet</th><th>Nature</th><th>Date</th><th class="text-right !pr-8">Montant (FCFA)</th></tr></thead>
+                            <tbody id="table-entrees-especes"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="bloc-entrees-nature" class="hidden">
+                    <div class="app-card overflow-hidden">
+                        <table class="app-table">
+                            <thead><tr><th>Donateur</th><th>Description du bien</th><th>Date</th></tr></thead>
+                            <tbody id="table-entrees-nature"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <!-- ============ RAPPORTS ============ -->
             <div id="p-rapports" class="page hidden">
                 <div class="mb-7">
@@ -1251,6 +1297,48 @@
                 <div class="flex gap-3 pt-4">
                     <button type="submit" class="btn-danger flex-1 justify-center">Valider</button>
                     <button type="button" onclick="toggleModal('modal-depense', false)" class="btn-cancel px-6">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ MODAL ENTRÉE ESPÈCE ============ -->
+    <div id="modal-entree-espece" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-sm p-8">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic it-teal"><i data-lucide="banknote" class="w-5 h-5"></i></div>
+                <h3 class="text-lg font-black uppercase tracking-tight" id="titre-entree-espece">Entrée d'argent</h3>
+            </div>
+            <form id="form-entree-espece" class="space-y-4">
+                <div><label class="label-style">Objet (ex : don de M. KOFFI)</label><input type="text" name="objet" required class="input-field uppercase"></div>
+                <div><label class="label-style">Date</label><input type="date" name="date" required class="input-field"></div>
+                <div><label class="label-style">Somme (FCFA)</label><input type="number" name="montant" required min="1" class="input-field text-xl font-black" style="color:var(--in)"></div>
+                <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl" style="background:var(--field);border:1px solid var(--field-border)">
+                    <input type="checkbox" name="initiale" class="custom-checkbox">
+                    <span class="text-[10.5px] font-bold leading-snug" style="color:var(--muted)">Caisse initiale — argent déjà en caisse AVANT l'inscription sur MUTASSO</span>
+                </label>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="btn-primary flex-1 justify-center">Enregistrer</button>
+                    <button type="button" onclick="toggleModal('modal-entree-espece', false)" class="btn-cancel px-6">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============ MODAL ENTRÉE NATURE ============ -->
+    <div id="modal-entree-nature" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-sm p-8">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="modal-ic it-teal"><i data-lucide="gift" class="w-5 h-5"></i></div>
+                <h3 class="text-lg font-black uppercase tracking-tight">Don en nature</h3>
+            </div>
+            <form id="form-entree-nature" class="space-y-4">
+                <div><label class="label-style">Donateur</label><input type="text" name="donateur" class="input-field uppercase" placeholder="Ex : M. le Maire"></div>
+                <div><label class="label-style">Description du bien</label><textarea name="description" required rows="3" class="input-field resize-none" placeholder="Ex : 10 sacs de ciment pour la construction"></textarea></div>
+                <div><label class="label-style">Date</label><input type="date" name="date" required class="input-field"></div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="btn-primary flex-1 justify-center">Enregistrer</button>
+                    <button type="button" onclick="toggleModal('modal-entree-nature', false)" class="btn-cancel px-6">Annuler</button>
                 </div>
             </form>
         </div>
@@ -1825,6 +1913,7 @@
             else if (id === 'bureau') { loadBureau(); loadPostes(); }
             else if (id === 'mensuel') { loadMensuel(); loadMensualiteConfig(); }
             else if (id === 'excep') { loadExcep(); loadExcepSearchMotifs(); loadExcepTypesList(); }
+            else if (id === 'entrees') { loadEntrees(); }
             else if (id === 'depenses') loadDepenses();
             else if (id === 'rapports') initRapports();
             else if (id === 'admin') chargerAdmin();
@@ -2598,6 +2687,72 @@
                 lucide.createIcons();
             }).catch(console.error);
         }
+
+        /* ============ ENTRÉES (hors cotisations) ============ */
+        // a) Espèces : argent reçu en caisse physique (la caisse
+        //    INITIALE d'avant MUTASSO s'enregistre ici aussi).
+        // b) Nature : dons en biens, sans valeur en FCFA.
+        function basculerEntrees(onglet) {
+            const esp = onglet === 'especes';
+            document.getElementById('bloc-entrees-especes').classList.toggle('hidden', !esp);
+            document.getElementById('bloc-entrees-nature').classList.toggle('hidden', esp);
+            document.getElementById('tab-entrees-especes').classList.toggle('active', esp);
+            document.getElementById('tab-entrees-nature').classList.toggle('active', !esp);
+        }
+
+        function loadEntrees() {
+            api('getEntrees').then(d => {
+                document.getElementById('total-entrees-especes').innerText = fmt(d.totalEspeces || 0);
+                document.getElementById('table-entrees-especes').innerHTML = (d.especes || []).length ? d.especes.map(r => `<tr>
+                    <td><p class="t-name">${esc(r.objet)}</p></td>
+                    <td>${r.initiale ? '<span class="pill motif-pill"><i data-lucide="vault" class="w-3 h-3"></i>Initiale</span>' : '<span class="pill periode-pill"><i data-lucide="hand-coins" class="w-3 h-3"></i>Don</span>'}</td>
+                    <td><span class="date-pill"><i data-lucide="calendar" class="w-3 h-3"></i>${esc(r.date || '')}</span></td>
+                    <td class="td-amount td-in !pr-8">+${fmt(r.montant)} FCFA</td>
+                </tr>`).join('') : emptyRow(4, 'Aucune entrée en espèce — la caisse initiale s\u2019enregistre ici');
+                document.getElementById('table-entrees-nature').innerHTML = (d.nature || []).length ? d.nature.map(r => `<tr>
+                    <td><p class="t-name">${esc(r.donateur) || '—'}</p></td>
+                    <td class="text-[11px] leading-relaxed">${esc(r.description)}</td>
+                    <td><span class="date-pill"><i data-lucide="calendar" class="w-3 h-3"></i>${esc(r.date || '')}</span></td>
+                </tr>`).join('') : emptyRow(3, 'Aucun don en nature enregistré');
+                lucide.createIcons();
+            }).catch(console.error);
+        }
+
+        function openModalEntreeEspece(initiale) {
+            if (!adminSeulement()) return;
+            const f = document.getElementById('form-entree-espece');
+            f.reset();
+            f.date.value = new Date().toISOString().slice(0, 10);
+            f.initiale.checked = !!initiale;
+            document.getElementById('titre-entree-espece').textContent = initiale ? 'Caisse initiale' : "Entrée d'argent";
+            toggleModal('modal-entree-espece', true);
+        }
+
+        function openModalEntreeNature() {
+            if (!adminSeulement()) return;
+            const f = document.getElementById('form-entree-nature');
+            f.reset();
+            f.date.value = new Date().toISOString().slice(0, 10);
+            toggleModal('modal-entree-nature', true);
+        }
+
+        document.getElementById('form-entree-espece').onsubmit = (e) => {
+            e.preventDefault();
+            const f = e.target;
+            api('enregistrerEntreeEspece', { objet: f.objet.value, montant: f.montant.value, date: f.date.value, initiale: f.initiale.checked }).then(r => {
+                showToast(r.msg, r.status === 'error' ? 'error' : 'success');
+                if (r.status !== 'error') { toggleModal('modal-entree-espece', false); loadEntrees(); loadStats(); }
+            }).catch(console.error);
+        };
+
+        document.getElementById('form-entree-nature').onsubmit = (e) => {
+            e.preventDefault();
+            const f = e.target;
+            api('enregistrerEntreeNature', { donateur: f.donateur.value, description: f.description.value, date: f.date.value }).then(r => {
+                showToast(r.msg, r.status === 'error' ? 'error' : 'success');
+                if (r.status !== 'error') { toggleModal('modal-entree-nature', false); basculerEntrees('nature'); loadEntrees(); }
+            }).catch(console.error);
+        };
 
         function loadBureau() {
             api('getBureau').then(d => {
