@@ -592,8 +592,9 @@ async function infosCompte() {
   }
   const base = infosPubliques(compteActif);
   const debutCotisations = getAssocInfos().debutCotisations || "";
-  if (accesMembre) return { ...base, role: "membre", membre: accesMembre, debutCotisations };
-  return { ...base, role: "admin", debutCotisations };
+  const statsMembres = lireStatsMembres();
+  if (accesMembre) return { ...base, role: "membre", membre: accesMembre, debutCotisations, statsMembres };
+  return { ...base, role: "admin", debutCotisations, statsMembres };
 }
 
 // Modification de l'identité (nom, contact, logo) depuis Paramètres
@@ -1302,6 +1303,27 @@ function enregistrerReglagesNotifications(r) {
 
 // Une notification n'est envoyée que si le gérant a laissé le type actif
 function notifActive(cle) { return getReglagesNotifications()[cle] !== false; }
+
+/* ============ STATS MUTUELLE : visibilité pour les MEMBRES ============ */
+// Le gérant décide : 'dashboard' (cartes visibles sur le dashboard
+// membre, défaut), 'menu' (déplacées dans un menu dédié) ou 'cache'
+// (masquées). Stocké ligne 9 de NOTIF_REGLAGES.
+function lireStatsMembres() {
+  const s = SS ? SS.getSheetByName(SHEET_NOTIF_REGLAGES) : null;
+  if (!s || s.getLastRow() < 9) return 'dashboard';
+  const v = s.getRange(9, 1, 1, 2).getValues()[0];
+  return ['dashboard', 'menu', 'cache'].includes(String(v[1])) ? String(v[1]) : 'dashboard';
+}
+
+// Le gérant choisit où les membres voient les stats de la mutuelle.
+function majStatsMembres(mode) {
+  if (!compteActif || compteActif.id === 'SUPER' || accesMembre) return { status: "error", msg: "Réservé au gestionnaire." };
+  if (!['dashboard', 'menu', 'cache'].includes(mode)) return { status: "error", msg: "Mode invalide." };
+  const s = SS.getSheetByName(SHEET_NOTIF_REGLAGES) || SS.insertSheet(SHEET_NOTIF_REGLAGES);
+  s.getRange(9, 1, 1, 2).setValues([['membre_stats', mode]]);
+  log.info("Visibilité des stats mutuelle réglée", { evenement: "reglages_stats_membres", compteId: compteActif.id, mode: mode });
+  return { status: "success", msg: mode === 'dashboard' ? "Stats visibles sur le tableau de bord des membres." : mode === 'menu' ? "Stats déplacées dans le menu des membres." : "Stats masquées pour les membres.", statsMembres: mode };
+}
 
 /* ============ RAPPEL AUTOMATIQUE — cotisations dues ============ */
 // Le gérant programme une relance des membres TANT QUE des
@@ -2081,5 +2103,6 @@ module.exports = {
   getReglagesNotifications, enregistrerReglagesNotifications,
   creerLienInscription, listerLiensInscription, revoquerLienInscription, verifierLienInscription,
   majDebutCotisations, getRappelReglages, enregistrerRappelReglages, traiterRappels,
-  enregistrerEntreeEspece, enregistrerEntreeNature, getEntrees
+  enregistrerEntreeEspece, enregistrerEntreeNature, getEntrees,
+  majStatsMembres
 };

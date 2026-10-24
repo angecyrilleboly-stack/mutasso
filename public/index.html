@@ -441,6 +441,7 @@
         <p class="nav-label">Navigation</p>
         <nav class="flex-1 overflow-y-auto space-y-1.5">
             <div onclick="showPage('dashboard'); closeSidebarMobile()" id="m-dashboard" class="side-item active"><i data-lucide="layout-grid" class="w-[18px] h-[18px]"></i><span>Dashboard</span></div>
+            <div onclick="showPage('statsm'); closeSidebarMobile()" id="m-stats" class="side-item" style="display:none"><i data-lucide="bar-chart-3" class="w-[18px] h-[18px]"></i><span>Stats mutuelle</span></div>
             <div onclick="showPage('membres'); closeSidebarMobile()" id="m-membres" class="side-item"><i data-lucide="users" class="w-[18px] h-[18px]"></i><span>Membres</span></div>
             <div onclick="showPage('bureau'); closeSidebarMobile()" id="m-bureau" class="side-item"><i data-lucide="shield-check" class="w-[18px] h-[18px]"></i><span>Bureau</span></div>
             <div onclick="showPage('mensuel'); closeSidebarMobile()" id="m-mensuel" class="side-item"><i data-lucide="calendar-check" class="w-[18px] h-[18px]"></i><span>Mensualités</span></div>
@@ -483,11 +484,19 @@
         <div id="main-content" class="flex-1 overflow-y-auto px-4 md:px-6 lg:px-8 xl:px-10 py-5 md:py-6 lg:py-8">
 
             <!-- ============ DASHBOARD ============ -->
+            <!-- ============ STATS MUTUELLE (menu membre, si gérant l'a choisi) ============ -->
+            <div id="p-statsm" class="page hidden">
+                <div class="mb-7">
+                    <h3 class="text-[26px] font-black uppercase tracking-tight leading-none flex items-center gap-3"><span class="w-3 h-3 rounded-full" style="background:var(--primary)"></span>Stats mutuelle</h3>
+                    <p class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)">Caisse et effectif de l'association</p>
+                </div>
+                <div id="grille-stats-mut" class="grid grid-cols-1 lg:grid-cols-3 gap-6"></div>
+            </div>
+
             <div id="p-dashboard" class="page">
                 <div class="flex flex-wrap items-end justify-between gap-4 mb-7">
                     <div>
-                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none">Vue d'ensemble</h3>
-                        <p id="dash-date" class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)"></p>
+                        <h3 class="text-[26px] font-black uppercase tracking-tight leading-none">Vue d'ensemble</h3>                        <p id="dash-date" class="text-[10.5px] font-bold uppercase tracking-[.16em] mt-2" style="color:var(--muted)"></p>
                     </div>
                     <span class="chip chip-neutral"><i data-lucide="activity" class="w-3 h-3"></i><span id="dash-year">Exercice 2026</span></span>
                 </div>
@@ -1105,6 +1114,11 @@
                         <h4 class="font-black text-xs uppercase tracking-wide">Mot de passe</h4>
                         <p class="text-[11px] font-semibold text-center leading-relaxed" style="color:var(--muted)">Mettre à jour votre mot de passe</p>
                     </div>
+                    <div class="app-card tile-hover p-10 flex flex-col items-center gap-5 admin-only" onclick="openModalStatsMembres()">
+                        <div class="icon-tile it-amber" style="width:60px;height:60px;border-radius:20px"><i data-lucide="eye" class="w-7 h-7"></i></div>
+                        <h4 class="font-black text-xs uppercase tracking-wide">Stats membres</h4>
+                        <p class="text-[11px] font-semibold text-center leading-relaxed" style="color:var(--muted)">Où les membres voient les stats de la mutuelle</p>
+                    </div>
                     <div class="app-card tile-hover p-10 flex flex-col items-center gap-5 admin-only" onclick="openModalDebutCotisations()">
                         <div class="icon-tile it-viol" style="width:60px;height:60px;border-radius:20px"><i data-lucide="calendar-plus" class="w-7 h-7"></i></div>
                         <h4 class="font-black text-xs uppercase tracking-wide">Début des cotisations</h4>
@@ -1456,6 +1470,25 @@
         </div>
     </div>
 
+    <!-- ============ MODAL STATS MEMBRES (gérant) ============ -->
+    <div id="modal-stats-membres" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-sm p-8">
+            <div class="flex items-center gap-4 mb-5">
+                <div class="modal-ic it-amber"><i data-lucide="eye" class="w-5 h-5"></i></div>
+                <div><h3 class="text-lg font-black uppercase tracking-tight">Stats membres</h3><p class="text-[9.5px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--muted)">Caisse et effectif vus par les membres</p></div>
+            </div>
+            <div class="space-y-2.5">
+                <label class="flex items-center gap-3 p-3.5 rounded-2xl cursor-pointer" style="background:var(--field);border:1px solid var(--field-border)"><input type="radio" name="stats-membres" value="dashboard" class="w-4 h-4" style="accent-color:var(--primary)"><div class="flex-1"><p class="text-[11.5px] font-extrabold">Sur le tableau de bord</p><p class="text-[9.5px] font-bold" style="color:var(--muted)">Cartes visibles sur le dashboard des membres</p></div></label>
+                <label class="flex items-center gap-3 p-3.5 rounded-2xl cursor-pointer" style="background:var(--field);border:1px solid var(--field-border)"><input type="radio" name="stats-membres" value="menu" class="w-4 h-4" style="accent-color:var(--primary)"><div class="flex-1"><p class="text-[11.5px] font-extrabold">Dans un menu séparé</p><p class="text-[9.5px] font-bold" style="color:var(--muted)">Menu « Stats mutuelle » dans la barre latérale</p></div></label>
+                <label class="flex items-center gap-3 p-3.5 rounded-2xl cursor-pointer" style="background:var(--field);border:1px solid var(--field-border)"><input type="radio" name="stats-membres" value="cache" class="w-4 h-4" style="accent-color:var(--primary)"><div class="flex-1"><p class="text-[11.5px] font-extrabold">Masquées</p><p class="text-[9.5px] font-bold" style="color:var(--muted)">Les membres ne voient pas la caisse ni l'effectif</p></div></label>
+            </div>
+            <div class="flex gap-3 pt-5">
+                <button type="button" onclick="enregistrerStatsMembres()" class="btn-primary flex-1 justify-center">Enregistrer</button>
+                <button type="button" onclick="toggleModal('modal-stats-membres', false)" class="btn-cancel px-6">Annuler</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ============ MODAL NOMINATION ============ -->
     <div id="modal-nomination" class="modal-wrap hidden items-center justify-center z-50">
         <div class="modal-card max-w-sm p-8">
@@ -1695,7 +1728,7 @@
 
         /* ============ BRANDING ============ */
         function appliquerBranding(infos) {
-            window.assocData = { nom: infos.nom, tel: infos.contact, email: infos.email, logo: infos.logo, debutCotisations: infos.debutCotisations || '' };
+            window.assocData = { nom: infos.nom, tel: infos.contact, email: infos.email, logo: infos.logo, debutCotisations: infos.debutCotisations || '', statsMembres: infos.statsMembres || 'dashboard' };
             const mark = document.getElementById('brand-mark');
             mark.innerHTML = infos.logo
                 ? `<img src="${infos.logo}" style="width:100%;height:100%;object-fit:cover">`
@@ -1850,6 +1883,26 @@
             // Dépenses et Paramètres pour son mot de passe)
             ['m-membres', 'm-point', 'm-pointdet', 'm-rapports'].forEach(id => {
                 const el = document.getElementById(id); if (el) el.style.display = 'none';
+            });
+            // Stats de la mutuelle (caisse, effectif) : le gérant décide
+            // où les membres les voient — dashboard, menu dédié ou nul part.
+            const modeStats = (window.assocData || {}).statsMembres || 'dashboard';
+            const menuStats = document.getElementById('m-stats');
+            if (menuStats) menuStats.style.display = modeStats === 'menu' ? '' : 'none';
+            const cartes = ['stat-caisse', 'ring-arc', 'stat-count']
+                .map(id => { const el = document.getElementById(id); return el ? el.closest('.app-card') : null; })
+                .filter(Boolean);
+            const grille = document.getElementById('grille-stats-mut');
+            cartes.forEach(c => {
+                if (modeStats === 'menu' && grille) {
+                    // Déplacement DOM : mêmes cartes, mêmes ids, la
+                    // logique de remplissage (loadChart) reste valable.
+                    if (c.parentElement !== grille) grille.appendChild(c);
+                    c.classList.remove('hidden');
+                } else {
+                    if (grille && c.parentElement === grille) document.getElementById('p-dashboard').appendChild(c);
+                    c.classList.toggle('hidden', modeStats === 'cache');
+                }
             });
             // Boutons / cartes de gestion (Encaisser, Sortie, Nommer, Postes, config…)
             document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
@@ -3066,6 +3119,29 @@
                     window.assocData = window.assocData || {};
                     window.assocData.debutCotisations = r.debutCotisations || '';
                     toggleModal('modal-debut-cotisations', false);
+                }
+            }).catch(e => showToast(String(e), 'error'));
+        }
+
+        /* ============ PARAMÈTRES : STATS MUTUELLE (membres) ============ */
+        function openModalStatsMembres() {
+            if (!adminSeulement()) return;
+            const mode = (window.assocData || {}).statsMembres || 'dashboard';
+            const r = document.querySelector('input[name="stats-membres"][value="' + mode + '"]');
+            if (r) r.checked = true;
+            toggleModal('modal-stats-membres', true);
+        }
+
+        function enregistrerStatsMembres() {
+            const cochee = document.querySelector('input[name="stats-membres"]:checked');
+            const mode = cochee ? cochee.value : 'dashboard';
+            api('majStatsMembres', mode).then(r => {
+                showToast(r.msg, r.status === 'error' ? 'error' : 'success');
+                if (r.status !== 'error') {
+                    window.assocData = window.assocData || {};
+                    window.assocData.statsMembres = mode;
+                    appliquerModeMembre();
+                    toggleModal('modal-stats-membres', false);
                 }
             }).catch(e => showToast(String(e), 'error'));
         }

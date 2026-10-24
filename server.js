@@ -194,7 +194,7 @@ const FNS_RESERVEES_ADMIN = new Set([
   'getReglagesNotifications', 'enregistrerReglagesNotifications',
   'creerLienInscription', 'listerLiensInscription', 'revoquerLienInscription',
   'majDebutCotisations', 'getRappelReglages', 'enregistrerRappelReglages',
-  'enregistrerEntreeEspece', 'enregistrerEntreeNature'
+  'enregistrerEntreeEspece', 'enregistrerEntreeNature', 'majStatsMembres'
 ]);
 app.post('/api/:fn', (req, res) => {
   // Filet de sécurité : le cron gratuit Vercel ne tourne qu'une fois
