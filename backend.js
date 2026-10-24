@@ -586,8 +586,9 @@ async function infosCompte() {
     return { id: 'SUPER', email: compteActif.email, nom: 'SUPER ADMIN — MUTASSO', contact: '', logo: '', role: "superadmin" };
   }
   const base = infosPubliques(compteActif);
-  if (accesMembre) return { ...base, role: "membre", membre: accesMembre };
-  return { ...base, role: "admin" };
+  const debutCotisations = getAssocInfos().debutCotisations || "";
+  if (accesMembre) return { ...base, role: "membre", membre: accesMembre, debutCotisations };
+  return { ...base, role: "admin", debutCotisations };
 }
 
 // Modification de l'identité (nom, contact, logo) depuis Paramètres
@@ -726,20 +727,15 @@ function getCreancesMembre() {
   const payes = new Set(rows
     .filter(r => r[0].toString() === accesMembre.id)
     .map(r => (MOIS_ADMIN.indexOf(String(r[2]))) + ',' + Number(r[3])));
-  let debut = null;
+  // Début des créances : 1) date fixée par le GÉRANT (Paramètres),
+  // 2) sinon 1re mensualité enregistrée, 3) sinon création de
+  // l'association. Tous les membres sont redevables depuis ce mois.
+  let debut = lireDebutCotisations() ? { m: lireDebutCotisations().getMonth(), a: lireDebutCotisations().getFullYear() } : null;
   rows.forEach(r => {
     const m = MOIS_ADMIN.indexOf(String(r[2])), a = Number(r[3]);
     if (m < 0 || !a) return;
     if (!debut || a * 12 + m < debut.a * 12 + debut.m) debut = { m: m, a: a };
   });
-  // RÈGLE PAR DÉFAUT : sans mensualité enregistrée, la dette démarre
-  // au mois de CRÉATION de l'association — tous les membres sont
-  // redevables jusqu'au mois courant, mois d'inscription du membre
-  // compris (antérieurs inclus).
-  if (!debut && compteActif && compteActif.creeLe) {
-    const d = new Date(compteActif.creeLe);
-    if (!isNaN(d)) debut = { m: d.getMonth(), a: d.getFullYear() };
-  }
   const auj = new Date();
   const mensualitesDu = [];
   if (debut) {
@@ -804,11 +800,9 @@ function getPointDetaille() {
     (participesParMembre[id] = participesParMembre[id] || new Set()).add(String(r[2]).toUpperCase());
   });
 
-  // Période d'activité : de la 1re mensualité au mois courant ;
-  // à défaut (aucune mensualité), depuis la CRÉATION de
-  // l'association (règle par défaut : tous redevables jusqu'au mois
-  // courant, antérieurs à l'inscription du membre inclus).
-  let debut = null;
+  // Période d'activité : 1) date fixée par le GÉRANT (Paramètres),
+  // 2) sinon 1re mensualité, 3) sinon création de l'association.
+  let debut = lireDebutCotisations() ? { m: lireDebutCotisations().getMonth(), a: lireDebutCotisations().getFullYear() } : null;
   rows.forEach(r => {
     const m = MOIS_ADMIN.indexOf(String(r[2])), a = Number(r[3]);
     if (m < 0 || !a) return;
@@ -1146,8 +1140,8 @@ function enregistrerTypeMensuel(d) { const s = SS.getSheetByName(SHEET_TYPES_MEN
   } return { status: "success", msg: "Mensualité configurée !" }; }
 
 function getAssocInfos() { const s = SS.getSheetByName(SHEET_INFOS);
-  const d = s.getDataRange().getValues(); if (d.length <= 1) return { nom: "", tel: "", adresse: "", email: "", logo: "" };
-  return { nom: d[1][0]||"", tel: d[1][1]||"", adresse: d[1][2]||"", email: d[1][3]||"", logo: d[1][4]||"" }; }
+  const d = s.getDataRange().getValues(); if (d.length <= 1) return { nom: "", tel: "", adresse: "", email: "", logo: "", debutCotisations: "" };
+  return { nom: d[1][0]||"", tel: d[1][1]||"", adresse: d[1][2]||"", email: d[1][3]||"", logo: d[1][4]||"", debutCotisations: d[1][5] ? String(d[1][5]) : "" }; }
 
 function saveAssocInfos(d) {
   // Garde-fou : sans classeur actif (contexte de la requête), on ne
@@ -1155,8 +1149,34 @@ function saveAssocInfos(d) {
   // association avec un classeur resté en mémoire.
   if (!SS) return { status: "error", msg: "Aucun espace actif." };
   const s = SS.getSheetByName(SHEET_INFOS);
-  if (s.getLastRow() > 1) s.deleteRows(2, s.getLastRow() - 1); s.appendRow([d.nom, d.tel, d.adresse, d.email, d.logo]);
+  if (s.getLastRow() > 1) s.deleteRows(2, s.getLastRow() - 1); s.appendRow([d.nom, d.tel, d.adresse, d.email, d.logo, d.debutCotisations || ""]);
   return { status: "success", msg: "Identité mise à jour !" };
+}
+
+// Date de début des cotisations, choisie par le GÉRANT dans les
+// Paramètres : tous les membres sont redevables des mensualités
+// depuis ce mois (colonne 6 d'ASSOC_INFOS, format jj/mm/aaaa).
+// Null si non définie.
+function lireDebutCotisations() {
+  const v = getAssocInfos().debutCotisations;
+  if (!v) return null;
+  const p = String(v).split('/');
+  if (p.length !== 3) return null;
+  const d = new Date(+p[2], +p[1] - 1, +p[0]);
+  return isNaN(d) ? null : d;
+}
+
+// Le gérant fixe la date à partir de laquelle l'association cotise.
+function majDebutCotisations(dateSaisie) {
+  if (!compteActif || compteActif.id === 'SUPER') return { status: "error", msg: "Réservé au gestionnaire." };
+  if (accesMembre) return { status: "error", msg: "Réservé au gestionnaire." };
+  const d = dateSaisie ? new Date(String(dateSaisie)) : null;
+  if (d && isNaN(d)) return { status: "error", msg: "Date invalide." };
+  const anciennes = getAssocInfos();
+  const fr = d ? d.toLocaleDateString('fr-FR') : "";
+  saveAssocInfos({ ...anciennes, debutCotisations: fr });
+  log.info("Date de début des cotisations définie", { evenement: "debut_cotisations", compteId: compteActif.id, debut: fr || "(effacée)" });
+  return { status: "success", msg: fr ? "Début des cotisations : " + fr : "Date effacée — retour au calcul par défaut.", debutCotisations: fr };
 }
 
 function getBureau() { const v = SS.getSheetByName(SHEET_BUREAU).getDataRange().getValues();
@@ -1905,5 +1925,6 @@ module.exports = {
   connexionSuperAdmin, majMotDePasseSuperAdmin, verifierSessionSuperAdmin, creerAssociationParSuperAdmin,
   getCreancesMembre, getPointDetaille,
   getReglagesNotifications, enregistrerReglagesNotifications,
-  creerLienInscription, listerLiensInscription, revoquerLienInscription, verifierLienInscription
+  creerLienInscription, listerLiensInscription, revoquerLienInscription, verifierLienInscription,
+  majDebutCotisations
 };

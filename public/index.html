@@ -1059,6 +1059,11 @@
                         <h4 class="font-black text-xs uppercase tracking-wide">Mot de passe</h4>
                         <p class="text-[11px] font-semibold text-center leading-relaxed" style="color:var(--muted)">Mettre à jour votre mot de passe</p>
                     </div>
+                    <div class="app-card tile-hover p-10 flex flex-col items-center gap-5 admin-only" onclick="openModalDebutCotisations()">
+                        <div class="icon-tile it-viol" style="width:60px;height:60px;border-radius:20px"><i data-lucide="calendar-plus" class="w-7 h-7"></i></div>
+                        <h4 class="font-black text-xs uppercase tracking-wide">Début des cotisations</h4>
+                        <p class="text-[11px] font-semibold text-center leading-relaxed" style="color:var(--muted)">Date à partir de laquelle les membres cotisent</p>
+                    </div>
                     <div class="app-card tile-hover p-10 flex flex-col items-center gap-5 admin-only" onclick="openModalNotifications()">
                         <div class="icon-tile it-teal" style="width:60px;height:60px;border-radius:20px"><i data-lucide="bell-ring" class="w-7 h-7"></i></div>
                         <h4 class="font-black text-xs uppercase tracking-wide">Notifications</h4>
@@ -1319,6 +1324,23 @@
         </div>
     </div>
 
+    <!-- ============ MODAL DÉBUT COTISATIONS (gérant) ============ -->
+    <div id="modal-debut-cotisations" class="modal-wrap hidden items-center justify-center z-50">
+        <div class="modal-card max-w-sm p-8">
+            <div class="flex items-center gap-4 mb-5">
+                <div class="modal-ic it-viol"><i data-lucide="calendar-plus" class="w-5 h-5"></i></div>
+                <div><h3 class="text-lg font-black uppercase tracking-tight">Début des cotisations</h3><p class="text-[9.5px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--muted)">Point de départ des mensualités</p></div>
+            </div>
+            <p class="text-[10.5px] font-bold leading-relaxed mb-4" style="color:var(--muted)">Tous les membres seront redevables des mensualités à partir de cette date (mois d'inscription du membre compris). Les calculs de créances s'ajustent aussitôt.</p>
+            <div><label class="label-style">Date de début</label><input type="date" id="debut-cotisations-champ" class="input-field"></div>
+            <p id="debut-cotisations-actuel" class="text-[10px] font-bold mt-2" style="color:var(--muted)"></p>
+            <div class="flex gap-3 pt-5">
+                <button type="button" onclick="enregistrerDebutCotisations(true)" class="btn-primary flex-1 justify-center">Enregistrer</button>
+                <button type="button" onclick="enregistrerDebutCotisations(false)" class="btn-cancel px-5" title="Effacer la date et revenir au calcul automatique">Effacer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ============ MODAL NOMINATION ============ -->
     <div id="modal-nomination" class="modal-wrap hidden items-center justify-center z-50">
         <div class="modal-card max-w-sm p-8">
@@ -1558,7 +1580,7 @@
 
         /* ============ BRANDING ============ */
         function appliquerBranding(infos) {
-            window.assocData = { nom: infos.nom, tel: infos.contact, email: infos.email, logo: infos.logo };
+            window.assocData = { nom: infos.nom, tel: infos.contact, email: infos.email, logo: infos.logo, debutCotisations: infos.debutCotisations || '' };
             const mark = document.getElementById('brand-mark');
             mark.innerHTML = infos.logo
                 ? `<img src="${infos.logo}" style="width:100%;height:100%;object-fit:cover">`
@@ -2810,6 +2832,37 @@
             api('enregistrerReglagesNotifications', reglages).then(r => {
                 showToast(r.msg);
                 toggleModal('modal-notifs', false);
+            }).catch(e => showToast(String(e), 'error'));
+        }
+
+        /* ============ PARAMÈTRES : DÉBUT DES COTISATIONS ============ */
+        // Le gérant fixe la date à partir de laquelle l'association
+        // cotise — point de départ du calcul des mensualités dues.
+        function openModalDebutCotisations() {
+            if (!adminSeulement()) return;
+            const champ = document.getElementById('debut-cotisations-champ');
+            const info = window.assocData || {};
+            champ.value = '';
+            if (info.debutCotisations) {
+                const p = String(info.debutCotisations).split('/');
+                if (p.length === 3) champ.value = p[2] + '-' + p[1] + '-' + p[0];
+            }
+            document.getElementById('debut-cotisations-actuel').textContent = info.debutCotisations
+                ? 'Réglage actuel : ' + info.debutCotisations
+                : 'Non défini — calcul automatique (1re mensualité enregistrée, sinon création de l\u2019association).';
+            toggleModal('modal-debut-cotisations', true);
+        }
+
+        function enregistrerDebutCotisations(positif) {
+            const champ = document.getElementById('debut-cotisations-champ');
+            if (positif && !champ.value) { showToast('Choisissez une date.', 'error'); return; }
+            api('majDebutCotisations', positif ? champ.value : '').then(r => {
+                showToast(r.msg, r.status === 'error' ? 'error' : 'success');
+                if (r.status !== 'error') {
+                    window.assocData = window.assocData || {};
+                    window.assocData.debutCotisations = r.debutCotisations || '';
+                    toggleModal('modal-debut-cotisations', false);
+                }
             }).catch(e => showToast(String(e), 'error'));
         }
 
