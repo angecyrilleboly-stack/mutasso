@@ -1317,6 +1317,33 @@
                 <div><h3 class="text-lg font-black uppercase tracking-tight">Notifications</h3><p class="text-[9.5px] font-bold uppercase tracking-widest mt-0.5" style="color:var(--muted)">Annonces envoyées aux membres</p></div>
             </div>
             <div class="space-y-3" id="liste-notifs-reglages"><p class="text-[10.5px] italic font-bold text-center py-3" style="color:var(--muted)">Chargement…</p></div>
+
+            <div class="pt-4 mt-2 border-t" style="border-color:var(--field-border)">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <div class="min-w-0"><p class="text-[11.5px] font-extrabold uppercase tracking-wide">Rappel cotisations</p><p class="text-[9px] font-bold leading-snug" style="color:var(--muted)">Relance automatique tant que des cotisations restent dues</p></div>
+                    <label class="cursor-pointer flex items-center gap-2 shrink-0"><span class="text-[9.5px] font-extrabold" style="color:var(--muted)">Actif</span><input type="checkbox" id="rappel-actif" class="w-4 h-4 cursor-pointer" style="accent-color:var(--primary)"></label>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div id="rappel-freq-n" class="col-span-2 grid grid-cols-2 gap-3">
+                        <div><label class="label-style">Tous les</label><input type="number" id="rappel-interval" min="1" value="1" class="input-field"></div>
+                        <div><label class="label-style">Unité</label>
+                            <select id="rappel-frequence" class="input-field" onchange="basculerJourRappel()">
+                                <option value="minutes">minutes</option>
+                                <option value="heures">heures</option>
+                                <option value="jours" selected>jours</option>
+                                <option value="mois">mois</option>
+                                <option value="semaine">semaine (jour précis)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="rappel-freq-jour" class="col-span-2 hidden">
+                        <label class="label-style">Jour de la semaine</label>
+                        <select id="rappel-jour" class="input-field">
+                            <option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option><option value="0">Dimanche</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
             <div class="flex gap-3 pt-5">
                 <button type="button" onclick="enregistrerNotifs()" class="btn-primary flex-1 justify-center">Enregistrer</button>
                 <button type="button" onclick="toggleModal('modal-notifs', false)" class="btn-cancel px-6">Annuler</button>
@@ -2821,15 +2848,37 @@
                     <div class="flex-1 min-w-0"><p class="text-[11.5px] font-extrabold">${t.titre}</p><p class="text-[9.5px] font-bold leading-snug" style="color:var(--muted)">${t.desc}</p></div>
                     <input type="checkbox" id="notif-${t.cle}" ${r[t.cle] !== false ? 'checked' : ''} class="w-4 h-4 cursor-pointer" style="accent-color:var(--primary)">
                 </label>`).join('');
+                api('getRappelReglages').then(rr => {
+                    const rp = (rr && rr.rappel) || {};
+                    document.getElementById('rappel-actif').checked = !!rp.actif;
+                    document.getElementById('rappel-interval').value = rp.interval || 1;
+                    document.getElementById('rappel-frequence').value = rp.frequence || 'jours';
+                    document.getElementById('rappel-jour').value = String(rp.jour !== undefined ? rp.jour : 1);
+                    basculerJourRappel();
+                }).catch(() => {});
                 lucide.createIcons();
                 toggleModal('modal-notifs', true);
             }).catch(e => showToast(String(e), 'error'));
         }
 
+        function basculerJourRappel() {
+            const semaine = (document.getElementById('rappel-frequence') || {}).value === 'semaine';
+            document.getElementById('rappel-freq-n').classList.toggle('hidden', semaine);
+            document.getElementById('rappel-freq-jour').classList.toggle('hidden', !semaine);
+        }
+
         function enregistrerNotifs() {
             const reglages = {};
             TYPES_NOTIF.forEach(t => { reglages[t.cle] = document.getElementById('notif-' + t.cle).checked; });
-            api('enregistrerReglagesNotifications', reglages).then(r => {
+            const rappel = {
+                actif: document.getElementById('rappel-actif').checked,
+                frequence: document.getElementById('rappel-frequence').value,
+                interval: Number(document.getElementById('rappel-interval').value) || 1,
+                jour: Number(document.getElementById('rappel-jour').value)
+            };
+            api('enregistrerReglagesNotifications', reglages).then(() =>
+                api('enregistrerRappelReglages', rappel)
+            ).then(r => {
                 showToast(r.msg);
                 toggleModal('modal-notifs', false);
             }).catch(e => showToast(String(e), 'error'));

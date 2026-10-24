@@ -108,6 +108,32 @@ async function sondeSante(req, res) {
 app.get('/health', sondeSante);
 app.get('/api/health', sondeSante);
 
+// ---- Cron des rappels (Vercel Scheduler / externe) ----
+// Toutes les associations y passent : chaque rappel DÛ est envoyé
+// (verrou atomique en base → pas de double envoi). Protégé par le
+// secret CRON_SECRET (Bearer) si défini.
+app.post('/api/cron/rappels', async (req, res) => {
+  if (config.CRON_SECRET && req.get('Authorization') !== 'Bearer ' + config.CRON_SECRET) {
+    return res.status(401).json({ __error: 'Non autorisé.' });
+  }
+  try {
+    await backend.traiterRappels();
+    res.json({ ok: true });
+  } catch (e) {
+    repondreErreur(req, res, e);
+  }
+});
+
+// Filet de sécurité : en plus du cron, ~5% des requêtes API
+// déclenchent le traitement (le cron gratuit Vercel peut manquer un
+// tour) — le verrou atomique garantit l'absence de double envoi.
+app.post('/api/:fn', async (req, res, next) => {
+  if (Math.random() < 0.05) {
+    backend.traiterRappels().catch(() => {});
+  }
+  next();
+});
+
 // PV PDF stockés en base (mode PostgreSQL) — /fichiers/<compte>/<nom>
 app.get('/fichiers/:compte/:nom', async (req, res) => {
   try {
@@ -163,7 +189,7 @@ const FNS_RESERVEES_ADMIN = new Set([
   'majIdentite', 'majMotDePasse', 'saveAssocInfos',
   'getReglagesNotifications', 'enregistrerReglagesNotifications',
   'creerLienInscription', 'listerLiensInscription', 'revoquerLienInscription',
-  'majDebutCotisations'
+  'majDebutCotisations', 'getRappelReglages', 'enregistrerRappelReglages'
 ]);
 app.post('/api/:fn', async (req, res) => {
   const fn = backend[req.params.fn];

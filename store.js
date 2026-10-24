@@ -189,4 +189,17 @@ async function pgEcrireParam(cle, valeur) {
   );
 }
 
-module.exports = { initStore, fermerStore, pingBdd, pgLireRegistre, pgSauverRegistre, pgLireClasseur, pgEcrireClasseur, pgEnregistrerFichier, pgLireFichier, pgAjouterAbonnementPush, pgMigrerAbonnementPush, pgListerAbonnementsPush, pgSupprimerClasseur, pgSupprimerAbonnementPushCompte, pgSupprimerAbonnementPush, pgLireParam, pgEcrireParam };
+// Verrou anti-double-envoi des rappels (serverless : instances
+// parallèles). Prend le verrou si la valeur actuelle est passée ;
+// retourne false si une autre instance l'a déjà pris.
+async function pgTenterVerrouRappel(compteId, isoJusqua) {
+  const r = await pool.query(
+    `INSERT INTO parametres (cle, valeur) VALUES ($1, $2)
+     ON CONFLICT (cle) DO UPDATE SET valeur = EXCLUDED.valeur
+     WHERE parametres.valeur < $2`,
+    ['rappel_verrou_' + compteId, isoJusqua]
+  );
+  return r.rowCount === 1;
+}
+
+module.exports = { initStore, fermerStore, pingBdd, pgLireRegistre, pgSauverRegistre, pgLireClasseur, pgEcrireClasseur, pgEnregistrerFichier, pgLireFichier, pgAjouterAbonnementPush, pgMigrerAbonnementPush, pgListerAbonnementsPush, pgSupprimerClasseur, pgSupprimerAbonnementPushCompte, pgSupprimerAbonnementPush, pgLireParam, pgEcrireParam, pgTenterVerrouRappel };

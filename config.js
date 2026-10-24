@@ -31,7 +31,9 @@ const config = {
   VAPID_SUBJECT: process.env.VAPID_SUBJECT || 'mailto:contact@mutasso.app',
   // Accès DÉDIÉ du super administrateur (distinct des associations)
   SUPER_ADMIN_EMAIL: process.env.SUPER_ADMIN_EMAIL || '',
-  SUPER_ADMIN_MDP: process.env.SUPER_ADMIN_MDP || ''
+  SUPER_ADMIN_MDP: process.env.SUPER_ADMIN_MDP || '',
+  // Secret du cron Vercel (rappels de cotisations) — Authorization: Bearer
+  CRON_SECRET: process.env.CRON_SECRET || ''
 };
 
 config.MODE_PG = !!config.DATABASE_URL;

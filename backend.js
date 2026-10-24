@@ -1260,6 +1260,117 @@ function enregistrerReglagesNotifications(r) {
 // Une notification n'est envoyée que si le gérant a laissé le type actif
 function notifActive(cle) { return getReglagesNotifications()[cle] !== false; }
 
+/* ============ RAPPEL AUTOMATIQUE — cotisations dues ============ */
+// Le gérant programme une relance des membres TANT QUE des
+// cotisations restent dues : toutes les N minutes / N heures / N
+// jours / N mois, ou un jour précis de la semaine. Stocké dans
+// NOTIF_REGLAGES (lignes 4-8 : rappel_actif, rappel_frequence,
+// rappel_interval, rappel_jour, rappel_dernier) — lignes 1-3 =
+// réglages des événements, sans interference.
+const FREQ_RAPPELS = ['minutes', 'heures', 'jours', 'mois', 'semaine'];
+const UNITE_RAPPEL_MS = { minutes: 60000, heures: 3600000, jours: 86400000 };
+
+function lireRappelReglages() {
+  const defauts = { actif: false, frequence: 'jours', interval: 1, jour: 1, dernier: '' };
+  const s = SS ? SS.getSheetByName(SHEET_NOTIF_REGLAGES) : null;
+  if (!s || s.getLastRow() < 1) return defauts;
+  const v = {};
+  s.getDataRange().getValues().forEach(r => { if (r[0]) v[String(r[0]).trim()] = String(r[1] === undefined ? '' : r[1]); });
+  return {
+    actif: String(v.rappel_actif || '').toUpperCase() === 'OUI',
+    frequence: FREQ_RAPPELS.includes(v.rappel_frequence) ? v.rappel_frequence : defauts.frequence,
+    interval: Math.max(1, Number(v.rappel_interval) || 1),
+    jour: [0, 1, 2, 3, 4, 5, 6].includes(Number(v.rappel_jour)) ? Number(v.rappel_jour) : defauts.jour,
+    dernier: v.rappel_dernier || ''
+  };
+}
+
+function ecrireRappelReglages(cfg) {
+  const s = SS.getSheetByName(SHEET_NOTIF_REGLAGES) || SS.insertSheet(SHEET_NOTIF_REGLAGES);
+  [['rappel_actif', cfg.actif ? 'OUI' : 'NON'],
+   ['rappel_frequence', cfg.frequence],
+   ['rappel_interval', Math.max(1, Number(cfg.interval) || 1)],
+   ['rappel_jour', [0, 1, 2, 3, 4, 5, 6].includes(Number(cfg.jour)) ? Number(cfg.jour) : 1],
+   ['rappel_dernier', cfg.dernier || '']
+  ].forEach((l, i) => s.getRange(4 + i, 1, 1, 2).setValues([l]));
+}
+
+// Le gérant définit la cadence du rappel (actif, fréquence, N, jour).
+function enregistrerRappelReglages(d) {
+  if (!compteActif || compteActif.id === 'SUPER' || accesMembre) return { status: "error", msg: "Réservé au gestionnaire." };
+  const actuel = lireRappelReglages();
+  const cfg = {
+    actif: !!d.actif,
+    frequence: FREQ_RAPPELS.includes(d.frequence) ? d.frequence : 'jours',
+    interval: Math.max(1, Math.min(d.frequence === 'minutes' ? 1440 : d.frequence === 'heures' ? 720 : d.frequence === 'jours' ? 365 : 12, Number(d.interval) || 1)),
+    jour: [0, 1, 2, 3, 4, 5, 6].includes(Number(d.jour)) ? Number(d.jour) : 1,
+    dernier: actuel.dernier
+  };
+  ecrireRappelReglages(cfg);
+  log.info("Rappel cotisations programmé", { evenement: "reglages_rappel", compteId: compteActif.id, actif: cfg.actif, frequence: cfg.frequence, interval: cfg.interval, jour: cfg.jour });
+  return { status: "success", msg: cfg.actif ? "Rappel programmé !" : "Rappel désactivé.", rappel: cfg };
+}
+
+function getRappelReglages() {
+  if (!compteActif || compteActif.id === 'SUPER' || accesMembre) return { status: "error", msg: "Réservé au gestionnaire." };
+  return { status: "success", rappel: lireRappelReglages() };
+}
+
+// Un rappel est-il dû MAINTENANT pour cette configuration ?
+function rappelDu(cfg) {
+  if (!cfg.actif) return false;
+  if (!cfg.dernier) return true;
+  const d = new Date(cfg.dernier);
+  if (isNaN(d)) return true;
+  const ms = UNITE_RAPPEL_MS[cfg.frequence];
+  if (ms) return Date.now() - d.getTime() >= cfg.interval * ms;
+  if (cfg.frequence === 'mois') {
+    const prochain = new Date(d);
+    prochain.setMonth(prochain.getMonth() + Math.max(1, cfg.interval));
+    return Date.now() >= prochain.getTime();
+  }
+  if (cfg.frequence === 'semaine') {
+    const auj = new Date();
+    return auj.getDay() === cfg.jour && auj.toDateString() !== d.toDateString();
+  }
+  return false;
+}
+
+// Horodatage du prochain envoi autorisé (sert aussi de verrou anti-doublon)
+function prochainRappelISO(cfg) {
+  const p = new Date(Date.now() + 60000); // min 1 min entre deux envois
+  if (UNITE_RAPPEL_MS[cfg.frequence]) return new Date(Date.now() + cfg.interval * UNITE_RAPPEL_MS[cfg.frequence]).toISOString();
+  if (cfg.frequence === 'mois') { p.setMonth(p.getMonth() + Math.max(1, cfg.interval)); return p.toISOString(); }
+  // semaine : verrou jusqu'au jour suivant (le rappel ne repart que la
+  // prochaine occurrence du jour choisi)
+  const d = new Date(Date.now() + 86400000);
+  while (d.getDay() !== cfg.jour) d.setDate(d.getDate() + 1);
+  return d.toISOString();
+}
+
+// Traite les rappels de TOUTES les associations (cron Vercel +
+// passage au fil des requêtes). Verrou atomique en base : deux
+// instances serverless ne peuvent pas double-envoyer.
+async function traiterRappels() {
+  const reg = await lireRegistre();
+  for (const c of reg) {
+    try {
+      if (!(await activerCompte(c.id))) continue;
+      const cfg = lireRappelReglages();
+      if (!rappelDu(cfg)) continue;
+      if (config.MODE_PG && !(await store.pgTenterVerrouRappel(c.id, prochainRappelISO(cfg)))) continue;
+      // Des cotisations dues ? (sinon rien à rappeler)
+      const nbEndettes = getPointDetaille().nbEndettes || 0;
+      if (nbEndettes < 1) continue;
+      const nomAssoc = getAssocInfos().nom || "L'association";
+      const r = await push.notifierTous(c.id, 'Rappel — cotisations dues',
+        `${nomAssoc} : des cotisations restent dues (${nbEndettes} membre(s) concerné(s)). Consultez votre espace pour le détail.`).catch(() => ({ envoyees: 0 }));
+      ecrireRappelReglages({ ...cfg, dernier: new Date().toISOString() });
+      log.info("Rappel cotisations envoyé", { evenement: "rappel_cotisations", compteId: c.id, membresNotifies: r.envoyees || 0 });
+    } catch (e) { /* association suivante */ }
+  }
+}
+
 // Suppression LOGIQUE : le motif est retiré des listes (archive)
 // mais conservé en base — aucune cotisation, aucun total ni
 // historique lié n'est supprimé ni altéré.
@@ -1926,5 +2037,5 @@ module.exports = {
   getCreancesMembre, getPointDetaille,
   getReglagesNotifications, enregistrerReglagesNotifications,
   creerLienInscription, listerLiensInscription, revoquerLienInscription, verifierLienInscription,
-  majDebutCotisations
+  majDebutCotisations, getRappelReglages, enregistrerRappelReglages, traiterRappels
 };
