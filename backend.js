@@ -732,6 +732,14 @@ function getCreancesMembre() {
     if (m < 0 || !a) return;
     if (!debut || a * 12 + m < debut.a * 12 + debut.m) debut = { m: m, a: a };
   });
+  // RÈGLE PAR DÉFAUT : sans mensualité enregistrée, la dette démarre
+  // au mois de CRÉATION de l'association — tous les membres sont
+  // redevables jusqu'au mois courant, mois d'inscription du membre
+  // compris (antérieurs inclus).
+  if (!debut && compteActif && compteActif.creeLe) {
+    const d = new Date(compteActif.creeLe);
+    if (!isNaN(d)) debut = { m: d.getMonth(), a: d.getFullYear() };
+  }
   const auj = new Date();
   const mensualitesDu = [];
   if (debut) {
@@ -796,13 +804,20 @@ function getPointDetaille() {
     (participesParMembre[id] = participesParMembre[id] || new Set()).add(String(r[2]).toUpperCase());
   });
 
-  // Période d'activité : de la 1re mensualité au mois courant
+  // Période d'activité : de la 1re mensualité au mois courant ;
+  // à défaut (aucune mensualité), depuis la CRÉATION de
+  // l'association (règle par défaut : tous redevables jusqu'au mois
+  // courant, antérieurs à l'inscription du membre inclus).
   let debut = null;
   rows.forEach(r => {
     const m = MOIS_ADMIN.indexOf(String(r[2])), a = Number(r[3]);
     if (m < 0 || !a) return;
     if (!debut || a * 12 + m < debut.a * 12 + debut.m) debut = { m: m, a: a };
   });
+  if (!debut && compteActif && compteActif.creeLe) {
+    const d = new Date(compteActif.creeLe);
+    if (!isNaN(d)) debut = { m: d.getMonth(), a: d.getFullYear() };
+  }
   const auj = new Date();
   const tousLesMois = [];
   if (debut) {
