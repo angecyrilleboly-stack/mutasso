@@ -108,31 +108,34 @@ async function sondeSante(req, res) {
 app.get('/health', sondeSante);
 app.get('/api/health', sondeSante);
 
+// ---- File d'exécution SÉRIE des requêtes API ----
+// Le contexte de données (compteActif/SS/accesMembre) est GLOBAL :
+// deux traitements qui s'entrelaceraient échangeraient leurs
+// contextes (ex. un rappel qui bascule sur une autre association au
+// milieu d'une requête membre → stats à 0). Chaque requête API et
+// chaque traitement de rappels passe donc dans la file, un par un.
+let fileApi = Promise.resolve();
+function executerEnFile(tache) {
+  const fin = fileApi.then(tache, tache);
+  fileApi = fin.catch(() => {});
+  return fin;
+}
+
 // ---- Cron des rappels (Vercel Scheduler / externe) ----
 // Toutes les associations y passent : chaque rappel DÛ est envoyé
 // (verrou atomique en base → pas de double envoi). Protégé par le
-// secret CRON_SECRET (Bearer) si défini.
+// secret CRON_SECRET (Bearer) si défini. Passe par la file comme
+// toute requête.
 app.post('/api/cron/rappels', async (req, res) => {
   if (config.CRON_SECRET && req.get('Authorization') !== 'Bearer ' + config.CRON_SECRET) {
     return res.status(401).json({ __error: 'Non autorisé.' });
   }
   try {
-    await backend.traiterRappels();
+    await executerEnFile(() => backend.traiterRappels());
     res.json({ ok: true });
   } catch (e) {
     repondreErreur(req, res, e);
   }
-});
-
-// Filet de sécurité : le cron gratuit Vercel ne tourne qu'une fois
-// par jour — ~20% des requêtes API déclenchent aussi le traitement
-// pour honorer les cadences courtes (minutes/heures). Le verrou
-// atomique en base garantit l'absence de double envoi.
-app.post('/api/:fn', async (req, res, next) => {
-  if (Math.random() < 0.2) {
-    backend.traiterRappels().catch(() => {});
-  }
-  next();
 });
 
 // PV PDF stockés en base (mode PostgreSQL) — /fichiers/<compte>/<nom>
@@ -193,37 +196,46 @@ const FNS_RESERVEES_ADMIN = new Set([
   'majDebutCotisations', 'getRappelReglages', 'enregistrerRappelReglages',
   'enregistrerEntreeEspece', 'enregistrerEntreeNature'
 ]);
-app.post('/api/:fn', async (req, res) => {
-  const fn = backend[req.params.fn];
-  if (typeof fn !== 'function') {
-    return repondreErreur(req, res, erreurs.introuvable('Fonction inconnue : ' + req.params.fn));
+app.post('/api/:fn', (req, res) => {
+  // Filet de sécurité : le cron gratuit Vercel ne tourne qu'une fois
+  // par jour — ~20% des requêtes déclenchent AUSSI le traitement des
+  // rappels, APRÈS la réponse et DANS LA FILE (jamais pendant une
+  // autre requête : le contexte de données est global).
+  if (Math.random() < 0.2) {
+    executerEnFile(() => backend.traiterRappels()).catch(() => {});
   }
-  if (!FNS_PUBLIQUES.has(req.params.fn)) {
-    // Chaque appel travaille sur le classeur de l'association
-    // authentifiée : ses données sont isolées des autres comptes.
-    // Un jeton MEMBRE ouvre le même classeur, mais en lecture
-    // seule (accesMembre) et filtré sur ses propres cotisations.
-    const session = await backend.verifierSession(req.get('X-Auth-Token') || '');
-    if (!session || !(await backend.activerCompte(session.idCompte, session.idMembre))) {
-      return repondreErreur(req, res, erreurs.nonAutorise());
+  executerEnFile(async () => {
+    const fn = backend[req.params.fn];
+    if (typeof fn !== 'function') {
+      return repondreErreur(req, res, erreurs.introuvable('Fonction inconnue : ' + req.params.fn));
     }
-    req.utilisateur = { userId: session.idCompte, role: session.role, membreId: session.idMembre };
-    definirContexte({ request: { id: req.id, method: req.method, url: req.originalUrl }, ...req.utilisateur });
-    if (session.role === 'membre' && FNS_RESERVEES_ADMIN.has(req.params.fn)) {
-      return repondreErreur(req, res, erreurs.interdit('Action réservée au gestionnaire de l\'association.', { __auth: false }));
+    if (!FNS_PUBLIQUES.has(req.params.fn)) {
+      // Chaque appel travaille sur le classeur de l'association
+      // authentifiée : ses données sont isolées des autres comptes.
+      // Un jeton MEMBRE ouvre le même classeur, mais en lecture
+      // seule (accesMembre) et filtré sur ses propres cotisations.
+      const session = await backend.verifierSession(req.get('X-Auth-Token') || '');
+      if (!session || !(await backend.activerCompte(session.idCompte, session.idMembre))) {
+        return repondreErreur(req, res, erreurs.nonAutorise());
+      }
+      req.utilisateur = { userId: session.idCompte, role: session.role, membreId: session.idMembre };
+      definirContexte({ request: { id: req.id, method: req.method, url: req.originalUrl }, ...req.utilisateur });
+      if (session.role === 'membre' && FNS_RESERVEES_ADMIN.has(req.params.fn)) {
+        return repondreErreur(req, res, erreurs.interdit('Action réservée au gestionnaire de l\'association.', { __auth: false }));
+      }
     }
-  }
-  let args = Array.isArray(req.body) ? req.body
-    : (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) ? [req.body]
-    : [];
-  try {
-    const result = await fn(...args);
-    // Persiste les modifications en base (mode PostgreSQL)
-    await flushPersistence();
-    res.json(result === undefined ? null : result);
-  } catch (e) {
-    repondreErreur(req, res, e);
-  }
+    let args = Array.isArray(req.body) ? req.body
+      : (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) ? [req.body]
+      : [];
+    try {
+      const result = await fn(...args);
+      // Persiste les modifications en base (mode PostgreSQL)
+      await flushPersistence();
+      res.json(result === undefined ? null : result);
+    } catch (e) {
+      repondreErreur(req, res, e);
+    }
+  });
 });
 
 // Handler global (erreurs Express hors routes API)
