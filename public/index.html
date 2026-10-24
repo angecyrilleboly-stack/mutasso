@@ -1584,6 +1584,14 @@
             // Menu Administration : super admin uniquement
             const mAdmin = document.getElementById('m-admin');
             if (mAdmin && window.roleActif === 'superadmin') mAdmin.style.display = '';
+            // Super admin : menus d'UNE association sans objet (aucun
+            // classeur actif) — il garde Dashboard, Administration et
+            // Paramètres (mot de passe)
+            if (window.roleActif === 'superadmin') {
+                ['m-membres', 'm-reunions', 'm-point', 'm-pointdet', 'm-bureau', 'm-mensuel', 'm-excep', 'm-depenses', 'm-rapports'].forEach(id => {
+                    const el = document.getElementById(id); if (el) el.style.display = 'none';
+                });
+            }
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('auth-screen').classList.remove('flex');
             document.getElementById('app-layout').classList.remove('hidden');
