@@ -142,6 +142,13 @@ function infosPubliques(e) {
 async function compteExiste() { return (await lireRegistre()).length > 0; }
 
 async function creerCompte(d) {
+  // INSCRIPTION SUR INVITATION : seul un lien donné par le super
+  // admin (non expiré, non révoqué, pas encore utilisé) ouvre le
+  // droit de créer un compte association.
+  const verifInvitation = await verifierLienInscription(d.invitation);
+  if (!verifInvitation.valide) {
+    return { status: "error", msg: "Inscription sur invitation : " + (verifInvitation.raison || "lien invalide.") + " Demandez un nouveau lien au super administrateur." };
+  }
   if (!d.email || !d.mdp || !d.nom) return { status: "error", msg: "Nom, email et mot de passe obligatoires." };
   if (String(d.mdp).length < 6) return { status: "error", msg: "Mot de passe : 6 caractères minimum." };
   if (d.logo && String(d.logo).length > TAILLE_LOGO_MAX) return { status: "error", msg: "Logo trop volumineux (2 Mo maximum)." };
@@ -156,10 +163,14 @@ async function creerCompte(d) {
     creeLe: new Date().toISOString()
   };
   ajouterAuRegistre(entree);
+  // Consomme le lien : une seule utilisation, rattachée au compte
+  const liens = await lireInvitations();
+  const inv = liens.find(x => x.token === String(d.invitation));
+  if (inv) { inv.utiliseLe = new Date().toISOString(); inv.emailUtilise = email; await sauverInvitations(liens); }
   // Espace de données VIERGE, propre à cette association
   await activerCompte(entree.id);
   saveAssocInfos({ nom: d.nom, tel: d.contact || "", adresse: "", email: email, logo: d.logo || "" });
-  log.info("Association inscrite", { evenement: "inscription", compteId: entree.id, email: email, nom: d.nom });
+  log.info("Association inscrite via invitation", { evenement: "inscription", compteId: entree.id, email: email, nom: d.nom });
   return { status: "success", msg: "Compte créé ! Votre espace est prêt.", token: tokenPour(entree), infos: infosPubliques(entree) };
 }
 
@@ -345,6 +356,88 @@ async function creerAssociationParSuperAdmin(d) {
   await activerCompte(monId); // retour à la session super admin
   log.info("Association créée par le super admin", { evenement: "creation_association", compteId: entree.id, email: email, nom: d.nom, par: 'SUPER' });
   return { status: "success", msg: "Association " + d.nom + " créée !", email: email, mdp: mdp, nom: d.nom };
+}
+
+// ---- LIENS D'INVITATION (inscription sur invitation) -----------
+// SEUL le super admin donne un lien de création de compte, valable
+// un temps qu'il fixe (heures + minutes). Un lien expiré, révoqué
+// ou déjà utilisé est refusé. PG : paramètre « invitations » ;
+// fichiers : data/invitations.json
+const FICHIER_INVITATIONS = path.join(__dirname, 'data', 'invitations.json');
+async function lireInvitations() {
+  try {
+    if (config.MODE_PG) {
+      const v = await store.pgLireParam('invitations');
+      return v ? JSON.parse(v) : [];
+    }
+    return JSON.parse(fs.readFileSync(FICHIER_INVITATIONS, 'utf8'));
+  } catch (e) { return []; }
+}
+async function sauverInvitations(liste) {
+  if (config.MODE_PG) { await store.pgEcrireParam('invitations', JSON.stringify(liste)); return; }
+  fs.mkdirSync(path.dirname(FICHIER_INVITATIONS), { recursive: true });
+  fs.writeFileSync(FICHIER_INVITATIONS, JSON.stringify(liste, null, 2));
+}
+
+// État d'un lien : actif / expire / revoque / utilise
+function etatLienInvitation(inv) {
+  if (inv.utiliseLe) return 'utilise';
+  if (inv.revoqueLe) return 'revoque';
+  if (Date.parse(inv.expireLe) <= Date.now()) return 'expire';
+  return 'actif';
+}
+
+// Génère un lien valable dureeMinutes (heures × 60 + minutes, fixées
+// par le super admin, plafonnées à 30 jours). Le jeton est aléatoire ;
+// l'URL complète est construite côté interface (origine du site).
+async function creerLienInscription(heures, minutes) {
+  if (!compteActif || compteActif.id !== 'SUPER') return { status: "error", msg: "Réservé au super administrateur." };
+  const h = Math.max(0, Math.min(720, Number(heures) || 0));
+  const m = Math.max(0, Math.min(720, Number(minutes) || 0));
+  const total = h * 60 + m;
+  if (total < 1) return { status: "error", msg: "Définissez une durée de validité (heures et/ou minutes)." };
+  const token = crypto.randomBytes(24).toString('hex');
+  const maintenant = new Date();
+  const expireLe = new Date(maintenant.getTime() + total * 60000).toISOString();
+  const liste = await lireInvitations();
+  // Purge douce : les liens terminés depuis plus de 30 jours sortent
+  const fraiches = liste.filter(x => etatLienInvitation(x) === 'actif' || Date.parse(x.expireLe) > Date.now() - 30 * 864e5);
+  fraiches.push({ token: token, creeLe: maintenant.toISOString(), expireLe: expireLe, dureeMinutes: total });
+  await sauverInvitations(fraiches);
+  log.info("Lien d'invitation créé", { evenement: "lien_invitation", dureeMinutes: total, expireLe: expireLe, par: 'SUPER' });
+  return { status: "success", token: token, expireLe: expireLe, dureeMinutes: total, msg: "Lien créé (valable " + (h ? h + " h " : "") + m + " min)." };
+}
+
+// Liste des liens émis (super admin) avec leur état
+async function listerLiensInscription() {
+  if (!compteActif || compteActif.id !== 'SUPER') return { status: "error", msg: "Réservé au super administrateur." };
+  const liste = await lireInvitations();
+  return { status: "success", liens: liste.map(x => ({ tokenComplet: x.token, creeLe: x.creeLe, expireLe: x.expireLe, dureeMinutes: x.dureeMinutes || null, utiliseLe: x.utiliseLe || null, emailUtilise: x.emailUtilise || null, revoqueLe: x.revoqueLe || null, etat: etatLienInvitation(x) })) };
+}
+
+// Retire la validité d'un lien encore inutilisé (super admin)
+async function revoquerLienInscription(token) {
+  if (!compteActif || compteActif.id !== 'SUPER') return { status: "error", msg: "Réservé au super administrateur." };
+  const liste = await lireInvitations();
+  const inv = liste.find(x => x.token === String(token || ''));
+  if (!inv) return { status: "error", msg: "Lien introuvable." };
+  if (inv.utiliseLe) return { status: "error", msg: "Lien déjà utilisé." };
+  inv.revoqueLe = new Date().toISOString();
+  await sauverInvitations(liste);
+  log.info("Lien d'invitation révoqué", { evenement: "revoke_lien_invitation", par: 'SUPER' });
+  return { status: "success", msg: "Lien révoqué." };
+}
+
+// Vérification PUBLIQUE (page d'accueil) : le lien est-il utilisable ?
+async function verifierLienInscription(token) {
+  const liste = await lireInvitations();
+  const inv = liste.find(x => x.token === String(token || ''));
+  if (!inv) return { valide: false, raison: "Lien inconnu." };
+  const etat = etatLienInvitation(inv);
+  if (etat === 'utilise') return { valide: false, raison: "Lien déjà utilisé." };
+  if (etat === 'revoque') return { valide: false, raison: "Lien révoqué." };
+  if (etat === 'expire') return { valide: false, raison: "Lien expiré." };
+  return { valide: true, expireLe: inv.expireLe };
 }
 
 // Supprime définitivement une association et toutes ses données.
@@ -1796,5 +1889,6 @@ module.exports = {
   getVueGlobale, reinitialiserMdpAssociation, supprimerAssociation,
   connexionSuperAdmin, majMotDePasseSuperAdmin, verifierSessionSuperAdmin, creerAssociationParSuperAdmin,
   getCreancesMembre, getPointDetaille,
-  getReglagesNotifications, enregistrerReglagesNotifications
+  getReglagesNotifications, enregistrerReglagesNotifications,
+  creerLienInscription, listerLiensInscription, revoquerLienInscription, verifierLienInscription
 };

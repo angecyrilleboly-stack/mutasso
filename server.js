@@ -150,7 +150,7 @@ function repondreErreur(req, res, err) {
 
 // Pont google.script.run -> fonctions du backend (voir public/gas-bridge.js)
 // Ces fonctions sont accessibles sans être connecté :
-const FNS_PUBLIQUES = new Set(['compteExiste', 'creerCompte', 'connexion', 'connexionSuperAdmin']);
+const FNS_PUBLIQUES = new Set(['compteExiste', 'creerCompte', 'connexion', 'connexionSuperAdmin', 'verifierLienInscription']);
 // Session MEMBRE (espace personnel en lecture seule) : ces
 // fonctions de gestion lui sont interdites côté serveur.
 const FNS_RESERVEES_ADMIN = new Set([
@@ -161,7 +161,8 @@ const FNS_RESERVEES_ADMIN = new Set([
   'nommerMembre', 'enregistrerPoste', 'supprimerPoste',
   'enregistrerReunion', 'supprimerReunion', 'uploadFileToDrive',
   'majIdentite', 'majMotDePasse', 'saveAssocInfos',
-  'getReglagesNotifications', 'enregistrerReglagesNotifications'
+  'getReglagesNotifications', 'enregistrerReglagesNotifications',
+  'creerLienInscription', 'listerLiensInscription', 'revoquerLienInscription'
 ]);
 app.post('/api/:fn', async (req, res) => {
   const fn = backend[req.params.fn];

@@ -307,6 +307,7 @@
                         </form>
 
                         <form id="form-signup" class="space-y-4 hidden">
+                            <p id="invite-note" class="text-[11px] font-bold leading-relaxed p-3 rounded-xl" style="color:var(--out);background:rgba(225,29,72,.06)"></p>
                             <div class="flex items-center gap-4">
                                 <div id="auth-logo-preview" class="w-[72px] h-[72px] rounded-2xl grid place-items-center overflow-hidden shrink-0" style="background:var(--field);border:1.5px dashed var(--field-border)"><i data-lucide="image" class="w-6 h-6" style="color:var(--field-border)"></i></div>
                                 <div>
@@ -1014,6 +1015,31 @@
                     </table>
                 </div>
                 <p class="text-[9.5px] font-bold mt-4 leading-relaxed" style="color:var(--muted)">Réinitialiser génère un nouveau mot de passe (affiché une seule fois). Supprimer efface définitivement l'association et toutes ses données (membres, cotisations, dépenses).</p>
+
+                <!-- Liens d'invitation : inscription sur invitation -->
+                <div class="app-card p-6 mt-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="icon-tile it-teal" style="width:40px;height:40px;border-radius:14px"><i data-lucide="link" class="w-5 h-5"></i></div>
+                        <div>
+                            <h4 class="text-xs font-black uppercase tracking-wide">Liens d'invitation</h4>
+                            <p class="text-[9.5px] font-bold" style="color:var(--muted)">L'inscription exige un lien que VOUS donnez — valable le temps que vous fixez</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div><label class="label-style">Heures</label><input type="number" id="invite-heures" min="0" max="720" value="24" class="input-field w-24 rounded-xl"></div>
+                        <div><label class="label-style">Minutes</label><input type="number" id="invite-minutes" min="0" max="720" value="0" class="input-field w-24 rounded-xl"></div>
+                        <button onclick="genererLienInvitation()" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i>Générer le lien</button>
+                    </div>
+                    <div id="invite-resultat" class="hidden mt-4 p-4 rounded-2xl" style="background:var(--field);border:1px solid var(--field-border)">
+                        <p class="text-[9.5px] font-bold uppercase tracking-wide mb-1.5" style="color:var(--muted)">Lien prêt — à transmettre à l'association</p>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="invite-url" readonly class="input-field text-[11px]" onclick="this.select()">
+                            <button onclick="copierLienInvite()" class="icon-btn" title="Copier le lien"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                        </div>
+                        <p id="invite-expire" class="text-[9.5px] font-bold mt-2" style="color:var(--in)"></p>
+                    </div>
+                    <div id="liste-invitations" class="mt-4 space-y-1.5"></div>
+                </div>
             </div>
 
             <!-- ============ PARAMÈTRES ============ -->
@@ -1449,7 +1475,7 @@
             const f = e.target;
             if (f.mdp.value !== f.mdp2.value) { errAuth('signup-err', 'Les deux mots de passe ne correspondent pas.'); return; }
             const btn = f.querySelector('button[type="submit"]'); btn.disabled = true;
-            api('creerCompte', { nom: f.nom.value.trim(), contact: f.contact.value.trim(), email: f.email.value.trim(), mdp: f.mdp.value, logo: document.getElementById('auth-logo-data').value })
+            api('creerCompte', { nom: f.nom.value.trim(), contact: f.contact.value.trim(), email: f.email.value.trim(), mdp: f.mdp.value, logo: document.getElementById('auth-logo-data').value, invitation: window.invitationToken || '' })
                 .then(r => {
                     btn.disabled = false;
                     if (r.status === 'error') { errAuth('signup-err', r.msg); return; }
@@ -1466,6 +1492,27 @@
                     lucide.createIcons();
                 }).catch(err => { btn.disabled = false; errAuth('signup-err', String(err)); });
         };
+
+        /* ============ INSCRIPTION SUR INVITATION ============ */
+        // Le super admin donne un lien « origine/?invite=JETON » valable
+        // le temps qu'il a fixé. Sans lien valide, le formulaire
+        // d'inscription reste bloqué.
+        window.invitationToken = '';
+        (async function initierInvitation() {
+            const note = document.getElementById('invite-note');
+            const form = document.getElementById('form-signup');
+            const bloquer = msg => { if (note) { note.textContent = msg; note.style.color = 'var(--out)'; note.style.background = 'rgba(225,29,72,.06)'; } if (form) form.querySelectorAll('input, button[type="submit"]').forEach(el => { el.disabled = true; }); };
+            const jeton = new URLSearchParams(location.search).get('invite');
+            if (!jeton) { bloquer("L'inscription se fait sur invitation : demandez un lien au super administrateur de MUTASSO."); return; }
+            window.invitationToken = jeton;
+            const r = await api('verifierLienInscription', jeton).catch(() => null);
+            if (!r || !r.valide) {
+                bloquer("Lien d'invitation " + ((r && r.raison) ? r.raison.toLowerCase() : "invalide") + " — demandez un nouveau lien au super administrateur.");
+                return;
+            }
+            const dt = new Date(r.expireLe).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            if (note) { note.textContent = "Lien d'invitation valide — inscription possible jusqu'au " + dt + "."; note.style.color = 'var(--in)'; note.style.background = 'rgba(5,150,105,.07)'; }
+        })();
 
         document.getElementById('form-login').onsubmit = (e) => {
             e.preventDefault();
@@ -1958,6 +2005,7 @@
             const box = document.getElementById('admin-table');
             if (!box) return;
             box.innerHTML = emptyRow(5, 'Chargement…');
+            chargerLiensInvitation();
             try {
                 const vue = await api('getVueGlobale');
                 if (!vue || vue.status === 'error') { box.innerHTML = emptyRow(5, vue && vue.msg || 'Indisponible'); return; }
@@ -1991,6 +2039,67 @@
                 api('supprimerAssociation', id).then(r => {
                     showToast(r.msg, r.status === 'error' ? 'error' : 'success');
                     if (r.status !== 'error') { chargerAdmin(); loadDashboardSuperAdmin(); }
+                }).catch(console.error);
+            });
+        }
+
+        /* ============ SUPER ADMIN : LIENS D'INVITATION ============ */
+        // Génère un lien « origine/?invite=JETON » valable le temps
+        // fixé (heures + minutes). Une seule utilisation par lien.
+        async function genererLienInvitation() {
+            const h = Number((document.getElementById('invite-heures') || {}).value) || 0;
+            const m = Number((document.getElementById('invite-minutes') || {}).value) || 0;
+            const r = await api('creerLienInscription', h, m).catch(e => { showToast(String(e), 'error'); return null; });
+            if (!r) return;
+            if (r.status === 'error') { showToast(r.msg, 'error'); return; }
+            const url = location.origin + '/?invite=' + r.token;
+            const champ = document.getElementById('invite-url');
+            champ.value = url;
+            document.getElementById('invite-resultat').classList.remove('hidden');
+            const dt = new Date(r.expireLe).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            document.getElementById('invite-expire').textContent = 'Valable jusqu\u2019au ' + dt + ' \u2014 une seule utilisation.';
+            showToast(r.msg);
+            chargerLiensInvitation();
+        }
+
+        function copierLienInvite() {
+            const url = (document.getElementById('invite-url') || {}).value || '';
+            if (!url) return;
+            navigator.clipboard.writeText(url).then(() => showToast('Lien copié ! Transmettez-le à l\u2019association.')).catch(() => {
+                document.getElementById('invite-url').select();
+                showToast('Sélectionnez et copiez le lien (Ctrl+C).');
+            });
+        }
+
+        async function chargerLiensInvitation() {
+            const box = document.getElementById('liste-invitations');
+            if (!box) return;
+            const r = await api('listerLiensInscription').catch(() => null);
+            if (!r || r.status === 'error' || !(r.liens || []).length) { box.innerHTML = '<p class="text-[9.5px] font-bold" style="color:var(--muted)">Aucun lien émis pour l\u2019instant.</p>'; return; }
+            const etats = { actif: ['Actif', 'var(--in)'], expire: ['Expiré', 'var(--muted)'], revoque: ['Révoqué', 'var(--out)'], utilise: ['Utilisé', 'var(--primary)'] };
+            box.innerHTML = r.liens.slice().reverse().map(l => {
+                const [label, couleur] = etats[l.etat] || ['?', 'var(--muted)'];
+                const dt = new Date(l.expireLe).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                const detail = l.etat === 'utilise' && l.emailUtilise ? ' · ' + esc(l.emailUtilise) : '';
+                return `<div class="flex items-center gap-3 p-2.5 rounded-xl" style="background:var(--field);border:1px solid var(--field-border)">
+                    <span class="pill" style="background:rgba(0,0,0,.05);color:${couleur}"><i data-lucide="link" class="w-3 h-3"></i>${label}</span>
+                    <span class="text-[10px] font-extrabold uppercase flex-1 min-w-0 truncate">Expire le ${dt}${detail}</span>
+                    ${l.etat === 'actif' ? `<button onclick="copierUrlInvite(${sq(l.tokenComplet)})" class="icon-btn" title="Copier le lien"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                    <button onclick="revoquerLienInvite(${sq(l.tokenComplet)})" class="icon-btn red" title="Révoquer"><i data-lucide="ban" class="w-3.5 h-3.5"></i></button>` : ''}
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function copierUrlInvite(token) {
+            navigator.clipboard.writeText(location.origin + '/?invite=' + token).then(() => showToast('Lien copié !')).catch(() => showToast('Copie impossible — réessayez.', 'error'));
+        }
+
+        function revoquerLienInvite(token) {
+            askConfirm('Révoquer ce lien ? Il ne pourra plus servir à créer un compte.', () => {
+                api('revoquerLienInscription', token).then(r => {
+                    showToast(r.msg, r.status === 'error' ? 'error' : 'success');
+                    chargerLiensInvitation();
                 }).catch(console.error);
             });
         }
@@ -3114,7 +3223,9 @@ ${formuleLevee}</div>
             // Pas de session -> page Connexion / Inscription
             const token = localStorage.getItem('mutasso_token');
             if (!token) {
-                api('compteExiste').then(existe => afficherAuth(existe ? 'login' : 'signup')).catch(() => afficherAuth('login'));
+                // Arrivée par un lien d'invitation : ouvrir l'inscription
+                const estInvite = !!window.invitationToken && !!(new URLSearchParams(location.search).get('invite'));
+                api('compteExiste').then(existe => afficherAuth(estInvite ? 'signup' : (existe ? 'login' : 'signup'))).catch(() => afficherAuth(estInvite ? 'signup' : 'login'));
                 return;
             }
             // Session existante -> on la valide puis on entre
