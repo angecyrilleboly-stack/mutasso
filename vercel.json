@@ -1,6 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/rappels", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/rappels", "schedule": "30 12 * * *" }
   ],
   "builds": [
     { "src": "api/index.js", "use": "@vercel/node" },

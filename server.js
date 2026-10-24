@@ -124,11 +124,12 @@ app.post('/api/cron/rappels', async (req, res) => {
   }
 });
 
-// Filet de sécurité : en plus du cron, ~5% des requêtes API
-// déclenchent le traitement (le cron gratuit Vercel peut manquer un
-// tour) — le verrou atomique garantit l'absence de double envoi.
+// Filet de sécurité : le cron gratuit Vercel ne tourne qu'une fois
+// par jour — ~20% des requêtes API déclenchent aussi le traitement
+// pour honorer les cadences courtes (minutes/heures). Le verrou
+// atomique en base garantit l'absence de double envoi.
 app.post('/api/:fn', async (req, res, next) => {
-  if (Math.random() < 0.05) {
+  if (Math.random() < 0.2) {
     backend.traiterRappels().catch(() => {});
   }
   next();
